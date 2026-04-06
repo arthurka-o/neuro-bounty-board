@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+cache/
+broadcast/
+
+# Foundry
+packages/contracts/out/
+packages/contracts/cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp

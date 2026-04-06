@@ -1,0 +1,10 @@
+{
+  "name": "neuro-bounty-board",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "test:contracts": "pnpm --filter contracts test",
+    "deploy:contracts": "pnpm --filter contracts deploy"
+  }
+}

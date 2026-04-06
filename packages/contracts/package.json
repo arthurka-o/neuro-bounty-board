@@ -1,0 +1,9 @@
+{
+  "name": "contracts",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "deploy": "forge script script/Deploy.s.sol --broadcast"
+  }
+}
