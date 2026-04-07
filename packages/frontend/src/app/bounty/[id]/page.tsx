@@ -165,9 +165,15 @@ export default function BountyPage({
               {metadata?.created_at && (
                 <span>Posted {metadata.created_at}</span>
               )}
-              <span className="font-medium text-error">
-                {formatDeadline(deadline)} left
-              </span>
+              {status === "Open" || status === "Applied" ? (
+                <span className="font-medium text-on-surface-muted">
+                  {Math.floor(deadline / 86400)} day deadline
+                </span>
+              ) : (
+                <span className="font-medium text-error">
+                  {formatDeadline(deadline)} left
+                </span>
+              )}
             </div>
           </div>
 
@@ -274,7 +280,9 @@ export default function BountyPage({
               <div className="flex justify-between">
                 <dt className="text-on-surface-muted">Deadline</dt>
                 <dd className="text-on-surface-subtle">
-                  {formatDeadline(deadline)}
+                  {status === "Open" || status === "Applied"
+                    ? `${Math.floor(deadline / 86400)} days`
+                    : formatDeadline(deadline)}
                 </dd>
               </div>
               <div className="h-px bg-border-subtle" />

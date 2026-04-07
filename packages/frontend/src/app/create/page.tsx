@@ -75,16 +75,14 @@ export default function CreateBountyPage() {
   async function handleCreate() {
     if (!isConnected || !reward || !title || !description) return;
 
-    const deadlineTimestamp = BigInt(
-      Math.floor(Date.now() / 1000) + deadline * 86400
-    );
+    const duration = BigInt(deadline * 86400);
     const descHash = keccak256(toBytes(title + description));
 
     writeCreate(
       {
         ...contracts.bountyEscrow,
         functionName: "createBounty",
-        args: [descHash, deadlineTimestamp, rewardWei],
+        args: [descHash, duration, rewardWei],
       },
       {
         onSuccess: async () => {
