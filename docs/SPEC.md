@@ -278,67 +278,66 @@ Reclaim is the better fit because we need custom providers for Twitch/Discord AP
 ## File Structure
 
 ```
-bounty-board/
-├── contracts/
-│   ├── BountyEscrow.sol
-│   ├── DisputeResolver.sol
-│   ├── VoterRegistry.sol
-│   └── interfaces/
-│       └── IReclaimVerifier.sol
-├── frontend/
-│   ├── app/
-│   │   ├── page.tsx              # Bounty listing
-│   │   ├── bounty/[id]/page.tsx  # Bounty detail + dispute view
-│   │   ├── create/page.tsx       # Post new bounty
-│   │   └── verify/page.tsx       # Reclaim verification flow
-│   ├── components/
-│   │   ├── BountyCard.tsx
-│   │   ├── DisputePanel.tsx
-│   │   ├── VoteWidget.tsx
-│   │   └── VerifyButton.tsx
-│   ├── hooks/
-│   │   ├── useSemaphore.ts
-│   │   ├── useReclaim.ts
-│   │   └── useBountyContract.ts
-│   └── lib/
-│       ├── semaphore.ts
-│       └── reclaim.ts
-├── scripts/
-│   ├── deploy.ts
-│   └── setup-providers.ts
-├── test/
-│   ├── BountyEscrow.test.ts
-│   ├── DisputeResolver.test.ts
-│   └── VoterRegistry.test.ts
-├── foundry.toml
-└── package.json
+neuro-bounty-board/                  # pnpm monorepo root
+├── CLAUDE.md
+├── docs/
+│   ├── SPEC.md                      # This file
+│   └── reclaim-reference.md         # Reclaim Protocol integration reference
+├── packages/
+│   ├── contracts/                   # Foundry project
+│   │   ├── src/
+│   │   │   ├── BountyEscrow.sol
+│   │   │   ├── DisputeResolver.sol
+│   │   │   └── VoterRegistry.sol
+│   │   ├── test/
+│   │   ├── script/
+│   │   ├── lib/forge-std/           # git submodule
+│   │   └── foundry.toml
+│   └── frontend/                    # Next.js App Router
+│       └── src/
+│           ├── app/
+│           │   ├── page.tsx         # Bounty listing
+│           │   ├── bounty/[id]/     # Bounty detail
+│           │   └── create/          # Post new bounty
+│           ├── components/          # UI components
+│           └── lib/
+│               ├── types.ts         # Shared types & constants
+│               └── mock-data.ts     # Mock data (temporary)
+├── mise.toml
+├── package.json
+└── pnpm-workspace.yaml
 ```
 
 ---
 
 ## Implementation Order
 
-### Phase 1: Core Contracts
-1. `BountyEscrow.sol` — create, cancel, apply, approve dev, submit, approve/reject, timeout claims
+### Phase 0: Scaffold (DONE)
+- pnpm monorepo with Foundry + Next.js packages
+- Wallet connection (wagmi + RainbowKit)
+- Frontend pages: bounty listing, detail, create (all with mock data)
+- Design system: warm light theme, Plus Jakarta Sans + Be Vietnam Pro
+
+### Phase 1: Core Contracts (CURRENT)
+1. `BountyEscrow.sol` — create, cancel, approve dev, submit, approve/reject, timeout claims
 2. Tests for escrow flow (happy path, cancellation, timeouts)
-3. Deploy to Sepolia testnet with a mock ERC-20 (Foundry scripts)
+3. Wire frontend to contracts (replace mock data with contract reads/writes)
+4. Deploy to Sepolia testnet with a mock ERC-20
 
 ### Phase 2: Identity Layer
-4. Register Reclaim app + create Twitch sub provider
-5. Create Discord role provider
-6. `VoterRegistry.sol` — verify Reclaim proofs, manage Semaphore group, sybil checks
-7. Frontend: verification flow with Reclaim JS SDK
+5. Register Reclaim app + create Twitch sub provider
+6. Create Discord role provider
+7. `VoterRegistry.sol` — verify Reclaim proofs, manage Semaphore group, sybil checks
+8. Frontend: verification flow with Reclaim JS SDK
 
 ### Phase 3: Voting & Disputes
-8. `DisputeResolver.sol` — Semaphore-based anonymous voting, quorum, supermajority
-9. Frontend: vote widget with client-side proof generation
-10. Integration tests: full dispute flow end-to-end
+9. `DisputeResolver.sol` — Semaphore-based anonymous voting, quorum, supermajority
+10. Frontend: vote widget with client-side proof generation
+11. Integration tests: full dispute flow end-to-end
 
-### Phase 4: Frontend & Polish
-11. Bounty listing, creation, detail pages
-12. Wallet connection (wagmi)
-13. Real-time updates (events/subgraph)
-14. IPFS for bounty descriptions and deliverable proofs
+### Phase 4: Polish
+12. Real-time updates (events/subgraph)
+13. IPFS for bounty descriptions and deliverable proofs
 
 ---
 
