@@ -14,9 +14,9 @@ import "../src/VoterRegistry.sol";
 ///      3. BountyEscrow (needs DisputeResolver address)
 ///      4. Wire: BountyEscrow.setDisputeResolver(resolver)
 contract Deploy is Script {
-    // ─── Optimism Mainnet Addresses ──────────────────────────────────────
+    // ─── Base Mainnet Addresses ────────────────────────────────────────
     address constant SEMAPHORE = 0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D;
-    address constant RECLAIM = 0xB238380c4C6C1a7eD9E1808B1b6fcb3F1B2836cF;
+    address constant RECLAIM = 0xB51FCb41fF11e0445600f63D8c38f955DcCB0B2c;
 
     // ─── Configuration (set via env or override) ─────────────────────────
     // EURC on Optimism: https://developers.circle.com/stablecoins/docs/eurc-on-main-networks
