@@ -36,10 +36,12 @@ packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
 
 ## Contracts
 
-- **Chain:** Ethereum mainnet (Sepolia for testnet).
+- **Chain:** Optimism mainnet for testing (Ethereum mainnet for production).
 - **Currency:** EURC (Circle's Euro stablecoin, ERC-20).
-- **Contracts:** BountyEscrow.sol, DisputeResolver.sol, VoterRegistry.sol.
-- **Not yet implemented** — still using Foundry's Counter.sol placeholder.
+- **Contracts:** BountyEscrow.sol, DisputeResolver.sol, VoterRegistry.sol — all UUPS upgradeable.
+- **External contracts on Optimism:**
+  - Semaphore V4: `0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D`
+  - Reclaim Verifier: `0xB238380c4C6C1a7eD9E1808B1b6fcb3F1B2836cF`
 - Arthur handles contract review. See SPEC.md for full contract interface spec.
 
 ## Current Status

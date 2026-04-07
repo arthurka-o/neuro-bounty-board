@@ -170,7 +170,7 @@ Semaphore lets users prove they're members of a group and send signals (votes) w
 
 - **Voting period:** Fixed duration, configurable by admin/council (e.g., 14 days initially).
 - **Quorum:** Minimum 10 votes required for a dispute resolution to be valid. If quorum is not met by the end of the voting period, the period is extended once (same duration). If quorum is still not met after the extension, the dispute is escalated to the admin/council multisig for manual resolution.
-- **Supermajority threshold:** >66% of votes must agree for a resolution. If neither side reaches 66%, the dispute is considered inconclusive and funds return to sponsor.
+- **Supermajority threshold:** >66% of votes must agree for a resolution. If neither side reaches 66%, the dispute is escalated to the admin/council multisig for manual resolution. Funds remain in escrow until the admin calls `resolveEscalated(bountyId, outcome)`.
 - **Vote options:** Approve (dev's work is acceptable) or Reject (dev's work is not acceptable).
 
 ### Voter Incentive
@@ -213,7 +213,7 @@ Dev applications are **off-chain only** — no bond is required to apply. Multip
 
 ### Currency
 
-All bounties are denominated in **EURC** (Circle's Euro stablecoin, ERC-20 on Ethereum mainnet). The contract interacts with EURC via standard ERC-20 `transferFrom`/`transfer`. Sponsors must approve the escrow contract to spend their EURC before creating a bounty.
+All bounties are denominated in **EURC** (Circle's Euro stablecoin, ERC-20 on Ethereum mainnet). The contract interacts with EURC via standard ERC-20 `transferFrom`/`transfer`. Sponsors must approve the escrow contract to spend their EURC before creating a bounty. Minimum reward is 1 EURC (1e6 base units) to prevent spam.
 
 ### Bond Mechanics
 
