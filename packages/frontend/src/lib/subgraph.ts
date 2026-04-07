@@ -2,7 +2,7 @@ import { gql, GraphQLClient } from "graphql-request";
 
 const SUBGRAPH_URL =
   process.env.NEXT_PUBLIC_SUBGRAPH_URL ??
-  "https://api.goldsky.com/api/public/project_cmnoje7b9buvl01xj3a1jhej4/subgraphs/neuro-bounty-board/1.0.0/gn";
+  "https://api.goldsky.com/api/public/project_cmnoje7b9buvl01xj3a1jhej4/subgraphs/neuro-bounty-board/1.0.1/gn";
 
 const client = new GraphQLClient(SUBGRAPH_URL);
 

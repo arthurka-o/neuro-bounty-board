@@ -43,6 +43,7 @@ export function handleBondStaked(event: BondStaked): void {
   let bounty = Bounty.load(event.params.bountyId.toString());
   if (!bounty) return;
   bounty.bond = event.params.bondAmount;
+  bounty.deadline = event.block.timestamp.plus(bounty.deadline); // duration → absolute
   bounty.status = "Active";
   bounty.save();
 }
