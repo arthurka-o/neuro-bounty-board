@@ -1,26 +1,50 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-sans: var(--font-body), ui-sans-serif, sans-serif;
+  --font-headline: var(--font-heading), ui-sans-serif, sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: #fdf5eb;
+  --color-surface: #ffffff;
+  --color-surface-dim: #f8f0e5;
+  --color-surface-container: #efe7dc;
+  --color-surface-bright: #fdf5eb;
+  --color-border: #e4dccf;
+  --color-border-subtle: #f0e8dd;
+  --color-on-surface: #322e28;
+  --color-on-surface-muted: #7b766e;
+  --color-on-surface-subtle: #5f5b53;
+  --color-primary: #735166;
+  --color-primary-container: #fdd0ea;
+  --color-on-primary: #ffeef5;
+  --color-secondary: #00675c;
+  --color-secondary-container: #62fae3;
+  --color-on-secondary-container: #005c52;
+  --color-tertiary: #a02d70;
+  --color-tertiary-container: #ff8bc5;
+  --color-error: #b41340;
+  --color-outline: #7b766e;
+  --color-outline-variant: #b3aca3;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+}
+
+/* Stagger fade-in */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s ease-out both;
 }
