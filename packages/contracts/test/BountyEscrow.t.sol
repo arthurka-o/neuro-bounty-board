@@ -66,9 +66,8 @@ contract BountyEscrowTest is Test {
     // ─── Helpers ─────────────────────────────────────────────────────────
 
     function _createBounty() internal returns (uint256) {
-        uint256 deadline = block.timestamp + 30 days;
         vm.prank(sponsor);
-        return escrow.createBounty(DESC_HASH, deadline, REWARD);
+        return escrow.createBounty(DESC_HASH, 30 days, REWARD);
     }
 
     function _createAndActivate() internal returns (uint256) {
@@ -108,19 +107,26 @@ contract BountyEscrowTest is Test {
     function test_createBounty_zeroReward_reverts() public {
         vm.prank(sponsor);
         vm.expectRevert(BountyEscrow.RewardTooLow.selector);
-        escrow.createBounty(DESC_HASH, block.timestamp + 1 days, 0);
+        escrow.createBounty(DESC_HASH, 30 days, 0);
     }
 
     function test_createBounty_belowMinimum_reverts() public {
         vm.prank(sponsor);
         vm.expectRevert(BountyEscrow.RewardTooLow.selector);
-        escrow.createBounty(DESC_HASH, block.timestamp + 1 days, 999_999); // just under 1 EURC
+        escrow.createBounty(DESC_HASH, 30 days, 999_999); // just under 1 EURC
     }
 
-    function test_createBounty_pastDeadline_reverts() public {
+    function test_createBounty_durationTooShort_reverts() public {
         vm.prank(sponsor);
-        vm.expectRevert(BountyEscrow.DeadlineInPast.selector);
-        escrow.createBounty(DESC_HASH, block.timestamp - 1, REWARD);
+        vm.expectRevert(BountyEscrow.DeadlineTooShort.selector);
+        escrow.createBounty(DESC_HASH, 1 hours, REWARD); // less than 1 day
+    }
+
+    function test_createBounty_durationExactlyOneDay() public {
+        vm.prank(sponsor);
+        uint256 bountyId = escrow.createBounty(DESC_HASH, 1 days, REWARD);
+        BountyEscrow.Bounty memory b = escrow.getBounty(bountyId);
+        assertEq(b.deadline, 1 days);
     }
 
     function test_createBounty_incrementsId() public {
@@ -251,6 +257,28 @@ contract BountyEscrowTest is Test {
         vm.prank(anyone);
         vm.expectRevert(BountyEscrow.NotDev.selector);
         escrow.stakeBond(bountyId);
+    }
+
+    function test_stakeBond_setsDeadlineFromNow() public {
+        uint256 bountyId = _createBounty();
+
+        // Before staking, deadline holds the raw duration
+        BountyEscrow.Bounty memory b = escrow.getBounty(bountyId);
+        assertEq(b.deadline, 30 days);
+
+        vm.prank(sponsor);
+        escrow.approveDev(bountyId, dev);
+
+        // Warp 2 days (simulating dev taking time to stake, within 3-day window)
+        vm.warp(block.timestamp + 2 days);
+        uint256 stakeTime = block.timestamp;
+
+        vm.prank(dev);
+        escrow.stakeBond(bountyId);
+
+        // After staking, deadline is absolute: stakeTime + 30 days
+        b = escrow.getBounty(bountyId);
+        assertEq(b.deadline, stakeTime + 30 days);
     }
 
     // ─── Submit Deliverable ─────────────────────────────────────────────
@@ -457,8 +485,8 @@ contract BountyEscrowTest is Test {
     function test_createBounty_emitsEvent() public {
         vm.prank(sponsor);
         vm.expectEmit(true, true, false, true);
-        emit BountyEscrow.BountyCreated(0, sponsor, REWARD, block.timestamp + 30 days);
-        escrow.createBounty(DESC_HASH, block.timestamp + 30 days, REWARD);
+        emit BountyEscrow.BountyCreated(0, sponsor, REWARD, 30 days);
+        escrow.createBounty(DESC_HASH, 30 days, REWARD);
     }
 
     function test_cancelBounty_emitsEvent() public {
@@ -561,7 +589,7 @@ contract BountyEscrowTest is Test {
         uint256 minReward = 1e6;
         eurc.mint(sponsor, minReward);
         vm.prank(sponsor);
-        uint256 bountyId = escrow.createBounty(DESC_HASH, block.timestamp + 30 days, minReward);
+        uint256 bountyId = escrow.createBounty(DESC_HASH, 30 days, minReward);
 
         vm.prank(sponsor);
         escrow.approveDev(bountyId, dev);

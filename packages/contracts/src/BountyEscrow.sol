@@ -32,7 +32,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
         address dev;
         uint256 reward;
         uint256 bond;
-        uint256 deadline; // implementation deadline (timestamp)
+        uint256 deadline; // duration or implementation deadline (depending on status)
         uint256 bondStakeDeadline; // dev must stake by this time
         uint256 submissionTime; // when dev submitted
         bytes32 descriptionHash;
@@ -77,7 +77,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
     error NotDev();
     error NotDisputeResolver();
     error InvalidStatus(BountyStatus current, BountyStatus expected);
-    error DeadlineInPast();
+    error DeadlineTooShort();
     error DeadlinePassed();
     error DeadlineNotPassed();
     error ReviewWindowNotExpired();
@@ -167,26 +167,27 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
     // ─── Bounty Lifecycle ────────────────────────────────────────────────
 
     /// @notice Sponsor creates a bounty and locks EURC reward in escrow.
-    function createBounty(bytes32 descriptionHash, uint256 deadline, uint256 reward)
+    /// @param duration Implementation deadline in seconds (starts when dev stakes bond).
+    function createBounty(bytes32 descriptionHash, uint256 duration, uint256 reward)
         external
         nonReentrant
         returns (uint256 bountyId)
     {
         if (reward < 1e6) revert RewardTooLow();
-        if (deadline <= block.timestamp) revert DeadlineInPast();
+        if (duration < 1 days) revert DeadlineTooShort();
 
         bountyId = nextBountyId++;
 
         Bounty storage b = bounties[bountyId];
         b.sponsor = msg.sender;
         b.reward = reward;
-        b.deadline = deadline;
+        b.deadline = duration; // stored as duration until bond is staked
         b.descriptionHash = descriptionHash;
         b.status = BountyStatus.Open;
 
         eurc.safeTransferFrom(msg.sender, address(this), reward);
 
-        emit BountyCreated(bountyId, msg.sender, reward, deadline);
+        emit BountyCreated(bountyId, msg.sender, reward, duration);
     }
 
     /// @notice Sponsor cancels a bounty before a dev has staked their bond.
@@ -227,6 +228,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
     }
 
     /// @notice Approved dev stakes their bond, activating the bounty.
+    /// @dev Converts the stored duration into an absolute deadline.
     function stakeBond(uint256 bountyId)
         external
         onlyDev(bountyId)
@@ -237,6 +239,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         if (block.timestamp > b.bondStakeDeadline) revert BondStakeWindowExpired();
 
+        b.deadline = block.timestamp + b.deadline; // duration → absolute timestamp
         b.status = BountyStatus.Active;
 
         eurc.safeTransferFrom(msg.sender, address(this), b.bond);
