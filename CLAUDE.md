@@ -49,16 +49,27 @@ packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
 
 ### Done
 - Monorepo scaffold (pnpm workspace, Foundry, Next.js)
-- Wallet connection (wagmi + RainbowKit)
+- Wallet connection (wagmi + RainbowKit, Base chain)
 - Bounty listing page with category filter, stats, CTA card
 - Bounty detail page with description, sidebar (details + timeline), action panel, application list
 - Create bounty page with form (title, description, category, reward, deadline)
-- All pages use mock data
+- BountyEscrow.sol, DisputeResolver.sol, VoterRegistry.sol — all UUPS upgradeable, 93 tests passing
+- Contracts deployed and verified on Base mainnet (Sourcify)
+- Frontend partially wired: reads bounties from chain + SQLite, create form calls contract
+- SQLite for off-chain metadata (title, description, category, applications)
+- Contract ABIs generated and imported into frontend
+- API routes for bounty metadata and applications CRUD
 
-### Next Up (Phase 1 from spec)
-- BountyEscrow.sol contract implementation
-- Contract tests
-- Wire frontend to contracts (replace mock data)
+### Deployed Contracts (Base Mainnet)
+- VoterRegistry proxy: `0x7f1A5C01dE6E6Db59aA820d5049F7b89c3338d4A`
+- BountyEscrow proxy: `0x756aC998B595f95F5bfC4092dBC043857430A806`
+- DisputeResolver proxy: `0x480Fa0aBe7d016701CbbAAF33a4D802BD6034c7e`
+- Semaphore group ID: 127
+
+### Next Up
+- Subgraph for indexing on-chain events (replace SQLite reads + direct RPC multicalls)
+- Wire remaining action buttons (cancel, approve dev, stake, submit, approve/reject deliverable, vote)
+- EURC approval flow before creating bounties
 
 ## Conventions
 

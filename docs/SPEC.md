@@ -318,26 +318,31 @@ neuro-bounty-board/                  # pnpm monorepo root
 - Frontend pages: bounty listing, detail, create (all with mock data)
 - Design system: warm light theme, Plus Jakarta Sans + Be Vietnam Pro
 
-### Phase 1: Core Contracts (CURRENT)
-1. `BountyEscrow.sol` — create, cancel, approve dev, submit, approve/reject, timeout claims
-2. Tests for escrow flow (happy path, cancellation, timeouts)
-3. Wire frontend to contracts (replace mock data with contract reads/writes)
-4. Deploy to Sepolia testnet with a mock ERC-20
+### Phase 1: Core Contracts (DONE)
+- BountyEscrow.sol, DisputeResolver.sol, VoterRegistry.sol — all UUPS upgradeable
+- 93 tests (lifecycle, events, upgrades, re-init, edge cases)
+- Deployed and verified on Base mainnet (Sourcify)
+- Frontend partially wired: reads from chain, create form calls contract
+- SQLite for off-chain metadata (title, description, category)
+
+### Phase 1.5: Subgraph & Frontend Wiring (CURRENT)
+1. Subgraph for indexing on-chain events (bounty lifecycle, disputes, votes)
+2. Replace SQLite reads + RPC multicalls with subgraph queries
+3. Wire remaining action buttons (cancel, approve dev, stake, submit, approve/reject, vote)
+4. EURC approval flow
 
 ### Phase 2: Identity Layer
 5. Register Reclaim app + create Twitch sub provider
 6. Create Discord role provider
-7. `VoterRegistry.sol` — verify Reclaim proofs, manage Semaphore group, sybil checks
-8. Frontend: verification flow with Reclaim JS SDK
+7. Frontend: verification flow with Reclaim JS SDK
 
 ### Phase 3: Voting & Disputes
-9. `DisputeResolver.sol` — Semaphore-based anonymous voting, quorum, supermajority
-10. Frontend: vote widget with client-side proof generation
-11. Integration tests: full dispute flow end-to-end
+8. Frontend: vote widget with client-side Semaphore proof generation
+9. Integration tests: full dispute flow end-to-end
 
 ### Phase 4: Polish
-12. Real-time updates (events/subgraph)
-13. IPFS for bounty descriptions and deliverable proofs
+10. Real-time updates via subgraph subscriptions
+11. Off-chain metadata storage (IPFS or pinned DB) for descriptions/deliverables
 
 ---
 

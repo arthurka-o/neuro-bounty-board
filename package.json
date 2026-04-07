@@ -6,5 +6,8 @@
     "build": "pnpm --filter frontend build",
     "test:contracts": "pnpm --filter contracts test",
     "deploy:contracts": "pnpm --filter contracts deploy"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3"]
   }
 }

@@ -13,6 +13,11 @@ packages/contracts/cache/
 .env.local
 .env.*.local
 
+# Database
+*.db
+*.db-wal
+*.db-shm
+
 # OS
 .DS_Store
 

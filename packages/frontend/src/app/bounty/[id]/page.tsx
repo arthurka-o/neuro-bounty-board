@@ -1,5 +1,18 @@
-import { MOCK_BOUNTIES, MOCK_APPLICATIONS } from "@/lib/mock-data";
-import { notFound } from "next/navigation";
+"use client";
+
+import { use, useEffect, useState } from "react";
+import { useEscrowConfig } from "@/lib/hooks";
+import { fetchBounty, type SubgraphBounty } from "@/lib/subgraph";
+import {
+  formatEurc,
+  formatDeadline,
+  formatDate,
+  ZERO_ADDRESS,
+  type Bounty,
+  type BountyCategory,
+  type Application,
+} from "@/lib/types";
+import type { BountyMetadata } from "@/lib/db";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ActionPanel } from "@/components/ActionPanel";
@@ -7,17 +20,104 @@ import { ApplicationList } from "@/components/ApplicationList";
 import { RewardDisplay } from "@/components/RewardDisplay";
 import Link from "next/link";
 
-export default async function BountyPage({
+function truncateAddress(addr: string): string {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
+export default function BountyPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const bounty = MOCK_BOUNTIES.find((b) => b.id === Number(id));
+  const { id } = use(params);
+  const bountyId = Number(id);
 
-  if (!bounty) return notFound();
+  const { config: escrowConfig } = useEscrowConfig();
 
-  const applications = MOCK_APPLICATIONS[bounty.id] ?? [];
+  const [onChain, setOnChain] = useState<SubgraphBounty | null>(null);
+  const [metadata, setMetadata] = useState<BountyMetadata | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetchBounty(bountyId).then(setOnChain),
+      fetch(`/api/bounties/${bountyId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then(setMetadata),
+      fetch(`/api/bounties/${bountyId}/applications`)
+        .then((r) => r.json())
+        .then((rows: { address: string; message: string; applied_at: string }[]) =>
+          setApplications(
+            rows.map((r) => ({
+              address: r.address,
+              message: r.message,
+              appliedAt: r.applied_at,
+            }))
+          )
+        )
+        .catch(() => {}),
+    ]).finally(() => setIsLoading(false));
+  }, [bountyId]);
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl px-6 py-8 sm:px-12">
+        <div className="rounded-[2rem] bg-surface p-12 animate-pulse h-64" />
+      </div>
+    );
+  }
+
+  if (!onChain || onChain.sponsor === ZERO_ADDRESS) {
+    return (
+      <div className="mx-auto max-w-5xl px-6 py-8 sm:px-12 text-center">
+        <h1 className="text-2xl font-bold text-on-surface font-headline">
+          Bounty not found
+        </h1>
+        <Link href="/" className="text-secondary mt-4 inline-block">
+          &larr; Back to bounties
+        </Link>
+      </div>
+    );
+  }
+
+  const title = metadata?.title ?? `Bounty #${bountyId}`;
+  const description = metadata?.description ?? "";
+  const category = (metadata?.category ?? "Other") as BountyCategory;
+  const bondBps = escrowConfig?.bondPercentageBps ?? 500;
+  const reviewDays = escrowConfig
+    ? Math.floor(escrowConfig.reviewWindow / 86400)
+    : 14;
+
+  const sponsor = onChain.sponsor;
+  const dev = onChain.dev;
+  const reward = BigInt(onChain.reward);
+  const status = onChain.status as Bounty["status"];
+  const deadline = Number(onChain.deadline);
+  const submissionTime = Number(onChain.submissionTime ?? "0");
+  const proofURI = onChain.proofURI;
+
+  const bounty: Bounty = {
+    id: bountyId,
+    title,
+    description,
+    category,
+    sponsor,
+    dev,
+    reward,
+    bond: BigInt(onChain.bond ?? "0"),
+    deadline,
+    bondStakeDeadline: Number(onChain.bondStakeDeadline ?? "0"),
+    submissionTime,
+    descriptionHash: "",
+    proofURIHash: "",
+    status,
+    createdAt: metadata?.created_at ?? "",
+  };
+
+  const reviewDeadlineTs = submissionTime
+    ? submissionTime + (escrowConfig?.reviewWindow ?? 1_209_600)
+    : 0;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 sm:px-12">
@@ -39,37 +139,39 @@ export default async function BountyPage({
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1 space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              <CategoryBadge category={bounty.category} />
-              <StatusBadge status={bounty.status} />
+              <CategoryBadge category={category} />
+              <StatusBadge status={status} />
             </div>
 
             <h1 className="text-3xl font-extrabold text-on-surface font-headline leading-tight sm:text-4xl">
-              {bounty.title}
+              {title}
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-on-surface-muted">
               <span>
                 Sponsor{" "}
                 <span className="font-medium text-on-surface">
-                  {bounty.sponsor}
+                  {truncateAddress(sponsor)}
                 </span>
               </span>
-              {bounty.dev && (
+              {dev && (
                 <span>
                   Dev{" "}
                   <span className="font-medium text-on-surface">
-                    {bounty.dev}
+                    {truncateAddress(dev)}
                   </span>
                 </span>
               )}
-              <span>Posted {bounty.createdAt}</span>
+              {metadata?.created_at && (
+                <span>Posted {metadata.created_at}</span>
+              )}
               <span className="font-medium text-error">
-                {bounty.deadline} left
+                {formatDeadline(deadline)} left
               </span>
             </div>
           </div>
 
-          <RewardDisplay amount={bounty.reward} />
+          <RewardDisplay amount={formatEurc(reward)} />
         </div>
       </div>
 
@@ -78,42 +180,39 @@ export default async function BountyPage({
         {/* Main column */}
         <div className="space-y-6">
           {/* Description */}
-          <div
-            className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)] animate-fade-up"
-            style={{ animationDelay: "150ms" }}
-          >
-            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline">
-              Description
-            </h2>
-            <p className="whitespace-pre-wrap leading-relaxed text-on-surface-subtle">
-              {bounty.description}
-            </p>
-          </div>
-
-          {/* Deliverable */}
-          {bounty.deliverableURI && (
+          {description && (
             <div
               className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)] animate-fade-up"
-              style={{ animationDelay: "200ms" }}
+              style={{ animationDelay: "150ms" }}
             >
               <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline">
-                Deliverable
+                Description
               </h2>
-              <a
-                href={bounty.deliverableURI}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-secondary hover:text-secondary/80 underline break-all transition-colors"
-              >
-                {bounty.deliverableURI}
-              </a>
-              {bounty.reviewDeadline && (
-                <p className="mt-3 text-sm text-error font-medium">
-                  Review deadline: {bounty.reviewDeadline} remaining
-                </p>
-              )}
+              <p className="whitespace-pre-wrap leading-relaxed text-on-surface-subtle">
+                {description}
+              </p>
             </div>
           )}
+
+          {/* Deliverable */}
+          {proofURI && status === "Submitted" && (
+              <div
+                className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)] animate-fade-up"
+                style={{ animationDelay: "200ms" }}
+              >
+                <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline">
+                  Deliverable
+                </h2>
+                <p className="text-sm text-on-surface-muted">
+                  Deliverable submitted (proof hash on-chain).
+                </p>
+                {reviewDeadlineTs > 0 && (
+                  <p className="mt-3 text-sm text-error font-medium">
+                    Review deadline: {formatDeadline(reviewDeadlineTs)} remaining
+                  </p>
+                )}
+              </div>
+            )}
 
           {/* Actions */}
           <div
@@ -124,19 +223,18 @@ export default async function BountyPage({
           </div>
 
           {/* Applications */}
-          {(bounty.status === "Open" || bounty.status === "Applied") &&
-            applications.length > 0 && (
-              <div
-                className="animate-fade-up"
-                style={{ animationDelay: "300ms" }}
-              >
-                <ApplicationList
-                  applications={applications}
-                  isSponsor={true}
-                  bountyId={bounty.id}
-                />
-              </div>
-            )}
+          {(status === "Open") && applications.length > 0 && (
+            <div
+              className="animate-fade-up"
+              style={{ animationDelay: "300ms" }}
+            >
+              <ApplicationList
+                applications={applications}
+                isSponsor={true}
+                bountyId={bountyId}
+              />
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -153,32 +251,42 @@ export default async function BountyPage({
               <div className="flex justify-between">
                 <dt className="text-on-surface-muted">Sponsor</dt>
                 <dd className="font-medium text-on-surface">
-                  {bounty.sponsor}
+                  {truncateAddress(sponsor)}
                 </dd>
               </div>
-              {bounty.dev && (
+              {dev && (
                 <div className="flex justify-between">
                   <dt className="text-on-surface-muted">Dev</dt>
-                  <dd className="font-medium text-on-surface">{bounty.dev}</dd>
+                  <dd className="font-medium text-on-surface">
+                    {truncateAddress(dev)}
+                  </dd>
                 </div>
               )}
               <div className="h-px bg-border-subtle" />
-              <div className="flex justify-between">
-                <dt className="text-on-surface-muted">Posted</dt>
-                <dd className="text-on-surface-subtle">{bounty.createdAt}</dd>
-              </div>
+              {metadata?.created_at && (
+                <div className="flex justify-between">
+                  <dt className="text-on-surface-muted">Posted</dt>
+                  <dd className="text-on-surface-subtle">
+                    {metadata.created_at}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-on-surface-muted">Deadline</dt>
-                <dd className="text-on-surface-subtle">{bounty.deadline}</dd>
+                <dd className="text-on-surface-subtle">
+                  {formatDeadline(deadline)}
+                </dd>
               </div>
               <div className="h-px bg-border-subtle" />
               <div className="flex justify-between">
                 <dt className="text-on-surface-muted">Bond</dt>
-                <dd className="text-on-surface-subtle">5%</dd>
+                <dd className="text-on-surface-subtle">
+                  {bondBps / 100}%
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-on-surface-muted">Review window</dt>
-                <dd className="text-on-surface-subtle">14 days</dd>
+                <dd className="text-on-surface-subtle">{reviewDays} days</dd>
               </div>
             </dl>
           </div>
@@ -189,17 +297,21 @@ export default async function BountyPage({
               Timeline
             </h3>
             <div className="space-y-0">
-              <TimelineStep label="Created" date={bounty.createdAt} completed />
+              <TimelineStep
+                label="Created"
+                date={metadata?.created_at}
+                completed
+              />
               <TimelineStep
                 label="Dev Assigned"
-                date={bounty.dev ? "assigned" : undefined}
-                completed={!!bounty.dev}
+                date={dev ? "assigned" : undefined}
+                completed={!!dev}
               />
               <TimelineStep
                 label="Submitted"
                 date={
                   ["Submitted", "Approved", "Disputed", "Resolved"].includes(
-                    bounty.status
+                    status
                   )
                     ? "delivered"
                     : undefined
@@ -209,17 +321,19 @@ export default async function BountyPage({
                   "Approved",
                   "Disputed",
                   "Resolved",
-                ].includes(bounty.status)}
+                ].includes(status)}
               />
               <TimelineStep
                 label="Resolved"
                 date={
-                  bounty.status === "Approved" || bounty.status === "Resolved"
+                  status === "Approved" ||
+                  status === "Resolved"
                     ? "complete"
                     : undefined
                 }
                 completed={
-                  bounty.status === "Approved" || bounty.status === "Resolved"
+                  status === "Approved" ||
+                  status === "Resolved"
                 }
                 last
               />

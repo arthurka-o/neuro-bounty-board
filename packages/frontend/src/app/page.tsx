@@ -1,8 +1,17 @@
+"use client";
+
 import { BountyList } from "@/components/BountyList";
 import { CategoryFilter } from "@/components/CategoryFilter";
+import { useEscrowConfig } from "@/lib/hooks";
+import { formatEurc } from "@/lib/types";
+import type { BountyCategory } from "@/lib/types";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Home() {
+  const [category, setCategory] = useState<BountyCategory | null>(null);
+  const { config } = useEscrowConfig();
+
   return (
     <div className="mx-auto max-w-[1920px] px-6 sm:px-12">
       {/* Hero */}
@@ -28,26 +37,19 @@ export default function Home() {
         className="mb-10 flex flex-wrap items-center gap-6 animate-fade-up"
         style={{ animationDelay: "50ms" }}
       >
-        <CategoryFilter />
-        <div className="ml-auto flex items-center gap-8">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-secondary font-headline">
-              142
-            </p>
-            <p className="text-[10px] uppercase tracking-widest text-outline">
-              Active Bounties
-            </p>
+        <CategoryFilter selected={category} onSelect={setCategory} />
+        {config && (
+          <div className="ml-auto flex items-center gap-8">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-secondary font-headline">
+                {config.nextBountyId}
+              </p>
+              <p className="text-[10px] uppercase tracking-widest text-outline">
+                Total Bounties
+              </p>
+            </div>
           </div>
-          <div className="h-8 w-px bg-outline-variant/30" />
-          <div className="text-center">
-            <p className="text-2xl font-bold text-primary font-headline">
-              €42.5k
-            </p>
-            <p className="text-[10px] uppercase tracking-widest text-outline">
-              Total Pool
-            </p>
-          </div>
-        </div>
+        )}
       </section>
 
       {/* Bounties */}
@@ -56,6 +58,7 @@ export default function Home() {
         style={{ animationDelay: "100ms" }}
       >
         <BountyList
+          category={category}
           ctaCard={
             <Link
               href="/create"

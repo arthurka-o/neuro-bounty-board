@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { Bounty } from "@/lib/types";
+import { Bounty, formatEurc, formatDeadline } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
+
+function truncateAddress(addr: string): string {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
 
 export function BountyCard({ bounty }: { bounty: Bounty }) {
   return (
@@ -24,15 +28,17 @@ export function BountyCard({ bounty }: { bounty: Bounty }) {
 
       <div className="mt-8 pt-6 border-t border-border-subtle flex items-end justify-between">
         <div>
-          <p className="text-xs text-outline">by {bounty.sponsor}</p>
+          <p className="text-xs text-outline">
+            by {truncateAddress(bounty.sponsor)}
+          </p>
           <p className="text-xs text-error font-medium mt-1">
-            {bounty.deadline} left
+            {formatDeadline(bounty.deadline)} left
           </p>
         </div>
         <div className="text-right">
           <p className="text-xs text-outline">Reward</p>
           <p className="text-3xl font-extrabold text-secondary font-headline">
-            €{bounty.reward}
+            &euro;{formatEurc(bounty.reward)}
           </p>
         </div>
       </div>
