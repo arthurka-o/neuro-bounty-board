@@ -1,0 +1,39 @@
+type Bounty @entity(immutable: false) {
+  id: ID!
+  sponsor: Bytes!
+  dev: Bytes
+  reward: BigInt!
+  bond: BigInt
+  deadline: BigInt!
+  bondStakeDeadline: BigInt
+  submissionTime: BigInt
+  proofURI: String
+  status: String!
+  createdAt: BigInt!
+  createdTx: Bytes!
+  dispute: Dispute
+}
+
+type Dispute @entity(immutable: false) {
+  id: ID!
+  bounty: Bounty!
+  votingEnd: BigInt!
+  approveCount: Int!
+  rejectCount: Int!
+  status: String!
+  extended: Boolean!
+  votes: [Vote!]! @derivedFrom(field: "dispute")
+}
+
+type Vote @entity(immutable: true) {
+  id: ID!
+  dispute: Dispute!
+  message: Int!
+  timestamp: BigInt!
+}
+
+type Voter @entity(immutable: true) {
+  id: ID!
+  identityCommitment: BigInt!
+  registeredAt: BigInt!
+}
