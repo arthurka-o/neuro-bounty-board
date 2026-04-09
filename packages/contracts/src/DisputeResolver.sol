@@ -324,6 +324,11 @@ contract DisputeResolver is OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuard
         }
     }
 
+    /// @notice Admin overrides voting deadline. For testing only — remove before production.
+    function adminSetVotingEnd(uint256 bountyId, uint256 newVotingEnd) external onlyOwner {
+        disputes[bountyId].votingEnd = newVotingEnd;
+    }
+
     /// @notice Admin manually resolves an escalated dispute.
     /// @dev Only callable when dispute status is Escalated.
     function resolveEscalated(uint256 bountyId, IBountyEscrow.DisputeOutcome outcome) external onlyOwner {
