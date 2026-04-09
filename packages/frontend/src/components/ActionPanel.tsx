@@ -32,73 +32,19 @@ function useActionTx() {
 export function ActionPanel({ bounty, applications, onApplicationSubmitted, onBountyChanged }: { bounty: Bounty; applications?: Application[]; onApplicationSubmitted?: () => void; onBountyChanged?: (patch: Partial<SubgraphBounty>) => void }) {
   const { address, isConnected } = useAccount();
 
-  if (!isConnected) {
-    return (
-      <div className="rounded-[2rem] border border-dashed border-border bg-surface p-8 text-center">
-        <p className="text-sm text-on-surface-muted">
-          Connect your wallet to interact with this bounty.
-        </p>
-      </div>
-    );
-  }
-
   const isSponsor =
-    address?.toLowerCase() === bounty.sponsor.toLowerCase();
+    isConnected && address?.toLowerCase() === bounty.sponsor.toLowerCase();
   const isDev =
-    bounty.dev &&
+    isConnected && bounty.dev &&
     address?.toLowerCase() === bounty.dev.toLowerCase();
 
   return (
     <div className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)]">
       <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline">
-        Actions
+        {bounty.status === "Approved" || bounty.status === "Resolved" || bounty.status === "Cancelled" ? "Status" : "Actions"}
       </h2>
 
-      {bounty.status === "Open" && !isSponsor && (
-        <ApplySection bountyId={bounty.id} applications={applications} onSuccess={onApplicationSubmitted} />
-      )}
-
-      {bounty.status === "Open" && isSponsor && (
-        <CancelSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Cancelled" })} />
-      )}
-
-      {bounty.status === "Applied" && isSponsor && (
-        <p className="text-sm text-on-surface-muted">
-          A dev has been approved. Waiting for them to stake their bond.
-        </p>
-      )}
-
-      {bounty.status === "Applied" && isDev && (
-        <StakeBondSection bountyId={bounty.id} reward={bounty.reward} onSuccess={() => onBountyChanged?.({ status: "Active" })} />
-      )}
-
-      {bounty.status === "Active" && isDev && (
-        <SubmitSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Submitted", submissionTime: String(Math.floor(Date.now() / 1000)) })} />
-      )}
-
-      {bounty.status === "Active" && isSponsor && (
-        <p className="text-sm text-on-surface-muted">
-          Waiting for the dev to submit their deliverable. Deadline:{" "}
-          <span className="font-medium text-error">
-            {formatDeadline(bounty.deadline)}
-          </span>{" "}
-          remaining.
-        </p>
-      )}
-
-      {bounty.status === "Submitted" && isSponsor && (
-        <ReviewSection bountyId={bounty.id} onBountyChanged={onBountyChanged} />
-      )}
-
-      {bounty.status === "Submitted" && isDev && (
-        <p className="text-sm text-on-surface-muted">
-          Your work has been submitted. Waiting for the sponsor to review.
-        </p>
-      )}
-
-      {bounty.status === "Disputed" && (
-        <VoteSection bountyId={bounty.id} dispute={bounty.dispute} onSuccess={() => onBountyChanged?.({ status: "Disputed" })} />
-      )}
+      {/* Read-only statuses — visible to everyone */}
 
       {bounty.status === "Approved" && (
         <p className="text-sm text-on-surface-muted">
@@ -114,6 +60,65 @@ export function ActionPanel({ bounty, applications, onApplicationSubmitted, onBo
         <p className="text-sm text-on-surface-muted">
           This bounty has been resolved.
         </p>
+      )}
+
+      {bounty.status === "Cancelled" && (
+        <p className="text-sm text-on-surface-muted">
+          This bounty has been cancelled.
+        </p>
+      )}
+
+      {bounty.status === "Disputed" && (
+        <VoteSection bountyId={bounty.id} dispute={bounty.dispute} onSuccess={() => onBountyChanged?.({ status: "Disputed" })} />
+      )}
+
+      {/* Interactive actions — require wallet */}
+
+      {bounty.status === "Applied" && (
+        !isConnected ? (
+          <p className="text-sm text-on-surface-muted">A dev has been approved. Waiting for them to stake their bond.</p>
+        ) : isSponsor ? (
+          <p className="text-sm text-on-surface-muted">A dev has been approved. Waiting for them to stake their bond.</p>
+        ) : isDev ? (
+          <StakeBondSection bountyId={bounty.id} reward={bounty.reward} onSuccess={() => onBountyChanged?.({ status: "Active" })} />
+        ) : (
+          <p className="text-sm text-on-surface-muted">A dev has been approved. Waiting for them to stake their bond.</p>
+        )
+      )}
+
+      {bounty.status === "Open" && (
+        !isConnected ? (
+          <p className="text-sm text-on-surface-muted">Connect your wallet to apply or interact with this bounty.</p>
+        ) : isSponsor ? (
+          <CancelSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Cancelled" })} />
+        ) : (
+          <ApplySection bountyId={bounty.id} applications={applications} onSuccess={onApplicationSubmitted} />
+        )
+      )}
+
+      {bounty.status === "Active" && (
+        !isConnected ? (
+          <p className="text-sm text-on-surface-muted">Dev is working on this bounty.</p>
+        ) : isDev ? (
+          <SubmitSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Submitted", submissionTime: String(Math.floor(Date.now() / 1000)) })} />
+        ) : isSponsor ? (
+          <p className="text-sm text-on-surface-muted">
+            Waiting for the dev to submit their deliverable. Deadline:{" "}
+            <span className="font-medium text-error">{formatDeadline(bounty.deadline)}</span> remaining.
+          </p>
+        ) : (
+          <p className="text-sm text-on-surface-muted">Dev is working on this bounty.</p>
+        )
+      )}
+
+      {bounty.status === "Submitted" && (
+        !isConnected ? (
+          <p className="text-sm text-on-surface-muted">Deliverable submitted. Waiting for sponsor review.</p>
+        ) : isSponsor ? (
+          <ReviewSection bountyId={bounty.id} onBountyChanged={onBountyChanged} />
+        ) : (
+          <p className="text-sm text-on-surface-muted">Deliverable submitted. Waiting for sponsor review.</p>
+        )
       )}
 
       {bounty.status === "Expired" && isSponsor && (
