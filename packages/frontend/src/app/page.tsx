@@ -20,7 +20,7 @@ export default function Home() {
         style={{ animationDelay: "0ms" }}
       >
         <div className="relative overflow-hidden bg-gradient-to-br from-primary-container/40 to-secondary-container/20 rounded-3xl p-12">
-          <div className="relative z-10 max-w-2xl">
+          <div className="relative z-10 max-w-2xl lg:max-w-[60%]">
             <h1 className="text-5xl font-extrabold text-on-surface font-headline leading-tight sm:text-6xl">
               Open Bounties
             </h1>
@@ -28,6 +28,15 @@ export default function Home() {
               Fund game integrations, tools, and art for the Neuro-sama
               community. Complete bounties, earn rewards.
             </p>
+          </div>
+          <div className="absolute right-6 -bottom-4 hidden lg:block">
+            <img
+              src="/neuro-sama.webp"
+              alt="Neuro-sama"
+              width={260}
+              height={370}
+              className="object-contain object-bottom"
+            />
           </div>
         </div>
       </header>
