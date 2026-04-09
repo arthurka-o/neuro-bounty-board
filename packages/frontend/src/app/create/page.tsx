@@ -237,7 +237,7 @@ export default function CreateBountyPage() {
           {/* Deadline */}
           <div className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)]">
             <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline mb-4">
-              Implementation Deadline
+              Time Limit
             </label>
             <div className="flex flex-wrap gap-2">
               {DEADLINE_OPTIONS.map((d) => (
@@ -255,7 +255,7 @@ export default function CreateBountyPage() {
               ))}
             </div>
             <p className="mt-3 text-xs text-outline">
-              Dev must submit within this time after being approved.
+              Dev must submit within this time after staking their bond.
             </p>
           </div>
         </div>
@@ -269,7 +269,7 @@ export default function CreateBountyPage() {
               </p>
               <p className="text-sm text-on-surface">
                 <span className="font-bold">{category}</span> &middot;{" "}
-                {deadline} day deadline &middot; {bondBps / 100}% dev bond
+                {deadline} day time limit &middot; {bondBps / 100}% dev bond
                 {rewardNum > 0 && (
                   <span className="text-on-surface-muted">
                     {" "}

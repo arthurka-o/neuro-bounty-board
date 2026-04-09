@@ -103,7 +103,7 @@ export function ActionPanel({ bounty, applications, onApplicationSubmitted, onBo
           <SubmitSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Submitted", submissionTime: String(Math.floor(Date.now() / 1000)) })} />
         ) : isSponsor ? (
           <p className="text-sm text-on-surface-muted">
-            Waiting for the dev to submit their deliverable. Deadline:{" "}
+            Waiting for the dev to submit their deliverable.{" "}
             <span className="font-medium text-error">{formatDeadline(bounty.deadline)}</span> remaining.
           </p>
         ) : (
@@ -442,6 +442,11 @@ function VoteSection({ bountyId, dispute, onSuccess }: { bountyId: number; dispu
   const [status, setStatus] = useState<VoteStatus>("idle");
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [hasExtension, setHasExtension] = useState(true);
+
+  useEffect(() => {
+    setHasExtension(!!window.tlsn);
+  }, []);
 
   const { address } = useAccount();
   const voteKey = `voted:${bountyId}`;
@@ -615,27 +620,34 @@ function VoteSection({ bountyId, dispute, onSuccess }: { bountyId: number; dispu
 
       {/* Vote buttons — visible when idle and voting still active */}
       {status === "idle" && !votingEnded && (
-        <>
-          <p className="text-sm text-on-surface-muted">
-            This bounty is in dispute. Vote on whether the deliverable meets the requirements.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => handleVote(1)}
-              disabled={busy}
-              className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
-            >
-              Vote: Approve
-            </button>
-            <button
-              onClick={() => handleVote(0)}
-              disabled={busy}
-              className="rounded-full border border-error/30 bg-error/5 px-6 py-3 text-sm font-bold text-error font-headline hover:bg-error/10 transition-all disabled:opacity-50"
-            >
-              Vote: Reject
-            </button>
+        !hasExtension ? (
+          <div className="rounded-xl border border-border bg-surface-dim p-4 text-sm text-on-surface-muted">
+            <p className="font-medium text-on-surface mb-1">TLSNotary extension required</p>
+            <p>To vote on disputes, install the <a href="https://chromewebstore.google.com/detail/tlsnotary/gnoglgpcamodhflknhmafmjdahcejcgg" target="_blank" rel="noopener noreferrer" className="text-secondary hover:underline">TLSNotary browser extension</a>. It proves your Twitch subscription without revealing your identity.</p>
           </div>
-        </>
+        ) : (
+          <>
+            <p className="text-sm text-on-surface-muted">
+              This bounty is in dispute. Vote on whether the deliverable meets the requirements.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleVote(1)}
+                disabled={busy}
+                className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
+              >
+                Vote: Approve
+              </button>
+              <button
+                onClick={() => handleVote(0)}
+                disabled={busy}
+                className="rounded-full border border-error/30 bg-error/5 px-6 py-3 text-sm font-bold text-error font-headline hover:bg-error/10 transition-all disabled:opacity-50"
+              >
+                Vote: Reject
+              </button>
+            </div>
+          </>
+        )
       )}
 
       {/* Progress indicator */}

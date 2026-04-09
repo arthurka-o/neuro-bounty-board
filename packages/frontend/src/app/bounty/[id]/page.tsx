@@ -218,7 +218,7 @@ export default function BountyPage({
               )}
               {status === "Open" || status === "Applied" ? (
                 <span className="font-medium text-on-surface-muted">
-                  {Math.floor(deadline / 86400)} day deadline
+                  {Math.floor(deadline / 86400)} day time limit
                 </span>
               ) : (
                 <span className="font-medium text-error">
@@ -274,7 +274,7 @@ export default function BountyPage({
                 )}
                 {status === "Submitted" && reviewDeadlineTs > 0 && (
                   <p className="mt-3 text-sm text-error font-medium">
-                    Review deadline: {formatDeadline(reviewDeadlineTs)} remaining
+                    Review period: {formatDeadline(reviewDeadlineTs)} remaining
                   </p>
                 )}
               </div>
@@ -339,7 +339,7 @@ export default function BountyPage({
                 </div>
               )}
               <div className="flex justify-between">
-                <dt className="text-on-surface-muted">Deadline</dt>
+                <dt className="text-on-surface-muted">Time limit</dt>
                 <dd className="text-on-surface-subtle">
                   {status === "Open" || status === "Applied"
                     ? `${Math.floor(deadline / 86400)} days`

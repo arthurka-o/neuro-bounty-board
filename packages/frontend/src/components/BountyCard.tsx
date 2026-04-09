@@ -34,7 +34,7 @@ export function BountyCard({ bounty }: { bounty: Bounty }) {
           {["Open", "Applied", "Active", "Submitted"].includes(bounty.status) && bounty.deadline > 0 && (
             <p className="text-xs text-error font-medium mt-1">
               {bounty.status === "Open" || bounty.status === "Applied"
-                ? `${Math.floor(bounty.deadline / 86400)} day deadline`
+                ? `${Math.floor(bounty.deadline / 86400)} day time limit`
                 : `${formatDeadline(bounty.deadline)} left`}
             </p>
           )}
