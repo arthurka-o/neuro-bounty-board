@@ -8,10 +8,11 @@ import {
   useWaitForTransactionReceipt,
   useReadContract,
   useSignMessage,
+  usePublicClient,
 } from "wagmi";
 import { contracts } from "@/lib/contracts";
 import { fetchDisputeVoters } from "@/lib/subgraph";
-import { erc20Abi, parseUnits, toHex, type Hex } from "viem";
+import { erc20Abi, parseUnits, toHex, keccak256, encodePacked, type Hex } from "viem";
 // Semaphore imports are dynamic to avoid SSR/Turbopack issues with WASM
 const getSemaphore = () => import("@/lib/semaphore");
 
@@ -408,10 +409,15 @@ function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty
   const [proof, setProof] = useState<TLSNProof | null>(null);
   const [proving, setProving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<VoteStep>("prove");
   const [joining, setJoining] = useState(false);
   const [voting, setVoting] = useState(false);
 
+  // Check localStorage for prior vote (temporary until on-chain nullifier check)
+  const voteKey = `voted:${bountyId}`;
+  const alreadyVoted = typeof window !== "undefined" && localStorage.getItem(voteKey) !== null;
+  const [step, setStep] = useState<VoteStep>(alreadyVoted ? "done" : "prove");
+
+  const publicClient = usePublicClient();
   const { signMessageAsync } = useSignMessage();
   const { writeContractAsync } = useWriteContract();
   const hasExtension = typeof window !== "undefined" && !!window.tlsn;
@@ -439,6 +445,25 @@ function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty
       proofData.attestation = attestationData;
 
       setProof(proofData);
+
+      // Check if this Twitch account already joined this dispute
+      const idMatch = proofData.results
+        .map((r) => r.value)
+        .join("")
+        .match(/"id":"(\d+)"/);
+      if (idMatch) {
+        const twitchIdHash = keccak256(encodePacked(["string"], [idMatch[1]]));
+        const alreadyJoined = await publicClient!.readContract({
+          ...contracts.disputeResolver,
+          functionName: "hasJoinedDispute",
+          args: [BigInt(bountyId), twitchIdHash],
+        });
+        if (alreadyJoined) {
+          setError("This Twitch account has already voted on this dispute.");
+          return;
+        }
+      }
+
       setStep("join");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -530,6 +555,7 @@ function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty
             ],
           });
 
+          localStorage.setItem(voteKey, "1");
           setStep("done");
           return;
         } catch (err) {
