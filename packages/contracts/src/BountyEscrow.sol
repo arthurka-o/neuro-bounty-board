@@ -53,6 +53,8 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
     uint256 public nextBountyId;
     mapping(uint256 => Bounty) public bounties;
 
+    uint256 public minReward;
+
     // ─── Events ──────────────────────────────────────────────────────────
 
     event BountyCreated(uint256 indexed bountyId, address indexed sponsor, uint256 reward, uint256 deadline);
@@ -65,6 +67,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
     event BountyExpired(uint256 indexed bountyId);
     event BountyResolved(uint256 indexed bountyId, DisputeOutcome outcome);
 
+event MinRewardUpdated(uint256 oldMinReward, uint256 newMinReward);
     event DisputeResolverUpdated(address indexed oldResolver, address indexed newResolver);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event BondPercentageUpdated(uint256 oldBps, uint256 newBps);
@@ -130,6 +133,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
         bondPercentageBps = 500; // 5%
         reviewWindow = 14 days;
         bondStakeWindow = 3 days;
+        minReward = 1e6; // 1 EURC
     }
 
     // ─── Admin ───────────────────────────────────────────────────────────
@@ -164,6 +168,11 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
         bondStakeWindow = _window;
     }
 
+    function setMinReward(uint256 _minReward) external onlyOwner {
+        emit MinRewardUpdated(minReward, _minReward);
+        minReward = _minReward;
+    }
+
     // ─── Bounty Lifecycle ────────────────────────────────────────────────
 
     /// @notice Sponsor creates a bounty and locks EURC reward in escrow.
@@ -173,7 +182,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
         nonReentrant
         returns (uint256 bountyId)
     {
-        if (reward < 1e6) revert RewardTooLow();
+        if (reward < minReward) revert RewardTooLow();
         if (duration < 1 days) revert DeadlineTooShort();
 
         bountyId = nextBountyId++;
@@ -284,6 +293,7 @@ contract BountyEscrow is IBountyEscrow, OwnableUpgradeable, UUPSUpgradeable, Ree
         external
         onlySponsor(bountyId)
         inStatus(bountyId, BountyStatus.Submitted)
+        nonReentrant
     {
         Bounty storage b = bounties[bountyId];
 

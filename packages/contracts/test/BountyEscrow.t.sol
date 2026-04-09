@@ -37,15 +37,14 @@ contract BountyEscrowTest is Test {
         escrow = BountyEscrow(address(escrowProxy));
 
         // Deploy dispute resolver behind proxy
-        // First we need a voter group
-        uint256 groupId = semaphore.createGroup(address(this));
-        // Add a dummy member so validateProof doesn't revert with "no members"
-        semaphore.addMember(groupId, 12345);
-
+        address[] memory notaries = new address[](0);
         DisputeResolver resolverImpl = new DisputeResolver();
         ERC1967Proxy resolverProxy = new ERC1967Proxy(
             address(resolverImpl),
-            abi.encodeCall(DisputeResolver.initialize, (address(semaphore), address(escrow), groupId))
+            abi.encodeCall(
+                DisputeResolver.initialize,
+                (address(semaphore), address(escrow), notaries, 0, "gql.twitch.tv")
+            )
         );
         resolver = DisputeResolver(address(resolverProxy));
 
