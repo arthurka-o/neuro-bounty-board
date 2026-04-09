@@ -5,8 +5,9 @@ import {
   DisputeResolved,
   DisputeExtended,
   DisputeEscalated,
+  VoterJoinedDispute,
 } from "../generated/DisputeResolver/DisputeResolver";
-import { Bounty, Dispute, Vote } from "../generated/schema";
+import { Bounty, Dispute, DisputeVoter, Vote } from "../generated/schema";
 
 export function handleDisputeOpened(event: DisputeOpened): void {
   let dispute = new Dispute(event.params.bountyId.toString());
@@ -67,4 +68,15 @@ export function handleDisputeEscalated(event: DisputeEscalated): void {
   if (!dispute) return;
   dispute.status = "Escalated";
   dispute.save();
+}
+
+export function handleVoterJoinedDispute(event: VoterJoinedDispute): void {
+  let id =
+    event.params.bountyId.toString() +
+    "-" +
+    event.params.identityCommitment.toString();
+  let voter = new DisputeVoter(id);
+  voter.dispute = event.params.bountyId.toString();
+  voter.identityCommitment = event.params.identityCommitment;
+  voter.save();
 }

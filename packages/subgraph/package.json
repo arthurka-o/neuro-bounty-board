@@ -5,7 +5,8 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "deploy:goldsky": "goldsky subgraph deploy neuro-bounty-board/1.0.1 --path build/"
+    "deploy:goldsky": "goldsky subgraph deploy neuro-bounty-board/1.0.5 --path build/",
+    "tag:latest": "goldsky subgraph tag create neuro-bounty-board/1.0.5 --tag latest"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.98.1",

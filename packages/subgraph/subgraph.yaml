@@ -8,9 +8,9 @@ dataSources:
     name: BountyEscrow
     network: base
     source:
-      address: "0x756aC998B595f95F5bfC4092dBC043857430A806"
+      address: "0x1005c4231E5A687F41A15277cEc416d4A9D3649e"
       abi: BountyEscrow
-      startBlock: 44384070
+      startBlock: 44470571
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -45,9 +45,9 @@ dataSources:
     name: DisputeResolver
     network: base
     source:
-      address: "0x480Fa0aBe7d016701CbbAAF33a4D802BD6034c7e"
+      address: "0xF7bBF83bdA864b7298eeBfB509c887033226FaB4"
       abi: DisputeResolver
-      startBlock: 44384070
+      startBlock: 44470571
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -55,6 +55,7 @@ dataSources:
       entities:
         - Dispute
         - Vote
+        - DisputeVoter
       abis:
         - name: DisputeResolver
           file: ./abis/DisputeResolver.json
@@ -69,25 +70,6 @@ dataSources:
           handler: handleDisputeExtended
         - event: DisputeEscalated(indexed uint256)
           handler: handleDisputeEscalated
+        - event: VoterJoinedDispute(indexed uint256,indexed bytes32,uint256)
+          handler: handleVoterJoinedDispute
       file: ./src/dispute-resolver.ts
-
-  - kind: ethereum
-    name: VoterRegistry
-    network: base
-    source:
-      address: "0x7f1A5C01dE6E6Db59aA820d5049F7b89c3338d4A"
-      abi: VoterRegistry
-      startBlock: 44384070
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - Voter
-      abis:
-        - name: VoterRegistry
-          file: ./abis/VoterRegistry.json
-      eventHandlers:
-        - event: VoterRegistered(indexed bytes32,uint256)
-          handler: handleVoterRegistered
-      file: ./src/voter-registry.ts

@@ -32,8 +32,8 @@ type Vote @entity(immutable: true) {
   timestamp: BigInt!
 }
 
-type Voter @entity(immutable: true) {
+type DisputeVoter @entity(immutable: true) {
   id: ID!
+  dispute: Dispute!
   identityCommitment: BigInt!
-  registeredAt: BigInt!
 }
