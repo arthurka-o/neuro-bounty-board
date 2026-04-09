@@ -52,6 +52,14 @@ export type Bounty = {
   status: BountyStatus;
   // Computed
   createdAt: string; // from SQLite
+  // Dispute (from subgraph)
+  dispute?: {
+    votingEnd: number;
+    approveCount: number;
+    rejectCount: number;
+    status: string;
+    extended: boolean;
+  } | null;
 };
 
 // ─── Display helpers ─────────────────────────────────────────────────

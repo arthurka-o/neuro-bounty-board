@@ -1,6 +1,8 @@
 "use client";
 
 import { Application } from "@/lib/types";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { contracts } from "@/lib/contracts";
 
 type Props = {
   applications: Application[];
@@ -8,12 +10,33 @@ type Props = {
   bountyId: number;
 };
 
-export function ApplicationList({ applications, isSponsor }: Props) {
+export function ApplicationList({ applications, isSponsor, bountyId }: Props) {
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  const busy = isPending || isConfirming;
+
+  function handleApprove(devAddress: string) {
+    writeContract({
+      ...contracts.bountyEscrow,
+      functionName: "approveDev",
+      args: [BigInt(bountyId), devAddress as `0x${string}`],
+    });
+  }
+
   return (
     <div className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)]">
       <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline">
         Applications ({applications.length})
       </h2>
+
+      {isSuccess && (
+        <p className="mb-4 text-sm font-medium text-secondary">
+          Dev approved! They can now stake their bond.
+        </p>
+      )}
 
       <div className="space-y-3">
         {applications.map((app) => (
@@ -34,8 +57,12 @@ export function ApplicationList({ applications, isSponsor }: Props) {
                 </p>
               </div>
               {isSponsor && (
-                <button className="shrink-0 rounded-full bg-secondary-container text-on-secondary-container px-5 py-2 text-xs font-bold font-headline hover:brightness-95 transition-all active:scale-95">
-                  Approve Dev
+                <button
+                  onClick={() => handleApprove(app.address)}
+                  disabled={busy}
+                  className="shrink-0 rounded-full bg-secondary-container text-on-secondary-container px-5 py-2 text-xs font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {busy ? "Approving..." : "Approve Dev"}
                 </button>
               )}
             </div>

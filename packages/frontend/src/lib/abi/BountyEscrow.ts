@@ -187,7 +187,7 @@ export const bountyEscrowAbi = [
         "internalType": "bytes32"
       },
       {
-        "name": "deadline",
+        "name": "duration",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -885,17 +885,17 @@ export const bountyEscrowAbi = [
   },
   {
     "type": "error",
-    "name": "DeadlineInPast",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "DeadlineNotPassed",
     "inputs": []
   },
   {
     "type": "error",
     "name": "DeadlinePassed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DeadlineTooShort",
     "inputs": []
   },
   {

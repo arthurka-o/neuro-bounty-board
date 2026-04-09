@@ -19,6 +19,19 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
+    "name": "SUB_CHECK",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -26,6 +39,38 @@ export const disputeResolverAbi = [
         "name": "",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "addNotary",
+    "inputs": [
+      {
+        "name": "_notary",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "approvedNotaries",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -45,6 +90,76 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
+    "name": "joinDisputeGroup",
+    "inputs": [
+      {
+        "name": "bountyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofs",
+        "type": "tuple[]",
+        "internalType": "struct TLSNVerifier.Presentation[]",
+        "components": [
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "attestationHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "serverDomain",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "commitments",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "revealedChunks",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "salts",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "chunkIndices",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      },
+      {
+        "name": "channelName",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "identityCommitment",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "castVote",
     "inputs": [
       {
@@ -53,7 +168,7 @@ export const disputeResolverAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "proof",
+        "name": "voteProof",
         "type": "tuple",
         "internalType": "struct ISemaphore.SemaphoreProof",
         "components": [
@@ -92,6 +207,25 @@ export const disputeResolverAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disputeGroupIds",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -158,6 +292,19 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
+    "name": "expectedDomain",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getDispute",
     "inputs": [
       {
@@ -209,6 +356,30 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
+    "name": "hasJoinedDispute",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -222,9 +393,19 @@ export const disputeResolverAbi = [
         "internalType": "address"
       },
       {
-        "name": "_voterGroupId",
+        "name": "_notaries",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_requiredSignatures",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "_expectedDomain",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "outputs": [],
@@ -284,10 +465,36 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
+    "name": "removeNotary",
+    "inputs": [
+      {
+        "name": "_notary",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requiredSignatures",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -335,6 +542,19 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
+    "name": "setExpectedDomain",
+    "inputs": [
+      {
+        "name": "_domain",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setQuorum",
     "inputs": [
       {
@@ -348,10 +568,10 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
-    "name": "setSupermajorityBps",
+    "name": "setRequiredSignatures",
     "inputs": [
       {
-        "name": "_bps",
+        "name": "_required",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -361,10 +581,10 @@ export const disputeResolverAbi = [
   },
   {
     "type": "function",
-    "name": "setVoterGroupId",
+    "name": "setSupermajorityBps",
     "inputs": [
       {
-        "name": "_groupId",
+        "name": "_bps",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -428,19 +648,6 @@ export const disputeResolverAbi = [
     ],
     "outputs": [],
     "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "voterGroupId",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -527,6 +734,25 @@ export const disputeResolverAbi = [
   },
   {
     "type": "event",
+    "name": "ExpectedDomainUpdated",
+    "inputs": [
+      {
+        "name": "oldDomain",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "newDomain",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -534,6 +760,32 @@ export const disputeResolverAbi = [
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NotaryAdded",
+    "inputs": [
+      {
+        "name": "notary",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NotaryRemoved",
+    "inputs": [
+      {
+        "name": "notary",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -569,6 +821,25 @@ export const disputeResolverAbi = [
       },
       {
         "name": "newQuorum",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RequiredSignaturesUpdated",
+    "inputs": [
+      {
+        "name": "oldRequired",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newRequired",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -629,16 +900,22 @@ export const disputeResolverAbi = [
   },
   {
     "type": "event",
-    "name": "VoterGroupIdUpdated",
+    "name": "VoterJoinedDispute",
     "inputs": [
       {
-        "name": "oldGroupId",
+        "name": "bountyId",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "newGroupId",
+        "name": "twitchIdHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "identityCommitment",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -678,6 +955,37 @@ export const disputeResolverAbi = [
   },
   {
     "type": "error",
+    "name": "AlreadyJoinedDispute",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AttestationHashMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ChannelNameNotInProof",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ChunkArrayLengthMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommitmentMismatch",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "DisputeAlreadyExists",
     "inputs": []
   },
@@ -685,6 +993,22 @@ export const disputeResolverAbi = [
     "type": "error",
     "name": "DisputeNotActive",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DomainMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DuplicateNotarySigner",
+    "inputs": [
+      {
+        "name": "signer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -709,6 +1033,11 @@ export const disputeResolverAbi = [
   },
   {
     "type": "error",
+    "name": "InsufficientNotarySignatures",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
   },
@@ -724,7 +1053,22 @@ export const disputeResolverAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidSignatureLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSigner",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidVote",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoProofsProvided",
     "inputs": []
   },
   {
@@ -735,6 +1079,11 @@ export const disputeResolverAbi = [
   {
     "type": "error",
     "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotSubscribed",
     "inputs": []
   },
   {
@@ -761,7 +1110,17 @@ export const disputeResolverAbi = [
   },
   {
     "type": "error",
+    "name": "ProofTooOld",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TwitchIdNotInProof",
     "inputs": []
   },
   {
@@ -782,6 +1141,17 @@ export const disputeResolverAbi = [
   },
   {
     "type": "error",
+    "name": "UnknownNotary",
+    "inputs": [
+      {
+        "name": "signer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "VotingPeriodEnded",
     "inputs": []
   },
@@ -793,6 +1163,11 @@ export const disputeResolverAbi = [
   {
     "type": "error",
     "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroCommitment",
     "inputs": []
   }
 ] as const;

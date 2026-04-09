@@ -213,7 +213,8 @@ export default function CreateBountyPage() {
                 value={reward}
                 onChange={(e) => setReward(e.target.value)}
                 placeholder="2,000"
-                min="1"
+                min="0.01"
+                step="0.01"
                 className="w-full rounded-xl border border-border bg-surface-dim pl-12 pr-5 py-4 text-2xl font-bold text-on-surface font-headline placeholder:text-outline-variant focus:border-secondary/50 focus:outline-none focus:ring-2 focus:ring-secondary/10 transition-all"
               />
             </div>
@@ -274,7 +275,7 @@ export default function CreateBountyPage() {
               <button
                 onClick={handleApprove}
                 disabled={
-                  isSubmitting || !title || !description || rewardNum < 1
+                  isSubmitting || !title || !description || rewardNum < 0.01
                 }
                 className="bg-secondary-container text-on-secondary-container px-10 py-4 rounded-full font-bold text-base font-headline shadow-lg hover:shadow-xl hover:brightness-95 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
               >
@@ -286,7 +287,7 @@ export default function CreateBountyPage() {
               <button
                 onClick={handleCreate}
                 disabled={
-                  isSubmitting || !title || !description || rewardNum < 1
+                  isSubmitting || !title || !description || rewardNum < 0.01
                 }
                 className="bg-secondary-container text-on-secondary-container px-10 py-4 rounded-full font-bold text-base font-headline shadow-lg hover:shadow-xl hover:brightness-95 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
               >

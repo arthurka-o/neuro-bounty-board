@@ -1,6 +1,8 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAccount } from "wagmi";
 import { useEscrowConfig } from "@/lib/hooks";
 import { fetchBounty, type SubgraphBounty } from "@/lib/subgraph";
 import {
@@ -31,6 +33,9 @@ export default function BountyPage({
 }) {
   const { id } = use(params);
   const bountyId = Number(id);
+  const searchParams = useSearchParams();
+  const mockDisputed = searchParams.get("mock") === "disputed";
+  const { address } = useAccount();
 
   const { config: escrowConfig } = useEscrowConfig();
 
@@ -39,26 +44,30 @@ export default function BountyPage({
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fetchApplications = useCallback(() => {
+    fetch(`/api/bounties/${bountyId}/applications`)
+      .then((r) => r.json())
+      .then((rows: { address: string; message: string; applied_at: string }[]) =>
+        setApplications(
+          rows.map((r) => ({
+            address: r.address,
+            message: r.message,
+            appliedAt: r.applied_at,
+          }))
+        )
+      )
+      .catch(() => {});
+  }, [bountyId]);
+
   useEffect(() => {
     Promise.all([
       fetchBounty(bountyId).then(setOnChain),
       fetch(`/api/bounties/${bountyId}`)
         .then((r) => (r.ok ? r.json() : null))
         .then(setMetadata),
-      fetch(`/api/bounties/${bountyId}/applications`)
-        .then((r) => r.json())
-        .then((rows: { address: string; message: string; applied_at: string }[]) =>
-          setApplications(
-            rows.map((r) => ({
-              address: r.address,
-              message: r.message,
-              appliedAt: r.applied_at,
-            }))
-          )
-        )
-        .catch(() => {}),
+      fetchApplications(),
     ]).finally(() => setIsLoading(false));
-  }, [bountyId]);
+  }, [bountyId, fetchApplications]);
 
   if (isLoading) {
     return (
@@ -92,7 +101,7 @@ export default function BountyPage({
   const sponsor = onChain.sponsor;
   const dev = onChain.dev;
   const reward = BigInt(onChain.reward);
-  const status = onChain.status as Bounty["status"];
+  const status = mockDisputed ? "Disputed" : onChain.status as Bounty["status"];
   const deadline = Number(onChain.deadline);
   const submissionTime = Number(onChain.submissionTime ?? "0");
   const proofURI = onChain.proofURI;
@@ -113,6 +122,15 @@ export default function BountyPage({
     proofURIHash: "",
     status,
     createdAt: metadata?.created_at ?? "",
+    dispute: onChain.dispute
+      ? {
+          votingEnd: Number(onChain.dispute.votingEnd),
+          approveCount: onChain.dispute.approveCount,
+          rejectCount: onChain.dispute.rejectCount,
+          status: onChain.dispute.status,
+          extended: onChain.dispute.extended,
+        }
+      : null,
   };
 
   const reviewDeadlineTs = submissionTime
@@ -225,18 +243,18 @@ export default function BountyPage({
             className="animate-fade-up"
             style={{ animationDelay: "250ms" }}
           >
-            <ActionPanel bounty={bounty} />
+            <ActionPanel bounty={bounty} onApplicationSubmitted={fetchApplications} />
           </div>
 
           {/* Applications */}
-          {(status === "Open") && applications.length > 0 && (
+          {status === "Open" && applications.length > 0 && (
             <div
               className="animate-fade-up"
               style={{ animationDelay: "300ms" }}
             >
               <ApplicationList
                 applications={applications}
-                isSponsor={true}
+                isSponsor={address?.toLowerCase() === sponsor.toLowerCase()}
                 bountyId={bountyId}
               />
             </div>

@@ -2,7 +2,7 @@ import { gql, GraphQLClient } from "graphql-request";
 
 const SUBGRAPH_URL =
   process.env.NEXT_PUBLIC_SUBGRAPH_URL ??
-  "https://api.goldsky.com/api/public/project_cmnoje7b9buvl01xj3a1jhej4/subgraphs/neuro-bounty-board/1.0.1/gn";
+  "https://api.goldsky.com/api/public/project_cmnoje7b9buvl01xj3a1jhej4/subgraphs/neuro-bounty-board/latest/gn";
 
 const client = new GraphQLClient(SUBGRAPH_URL);
 
@@ -114,4 +114,24 @@ export async function fetchBounty(
     { id: id.toString() }
   );
   return data.bounty;
+}
+
+const DISPUTE_VOTERS_QUERY = gql`
+  query DisputeVoters($disputeId: String!) {
+    disputeVoters(where: { dispute: $disputeId }) {
+      identityCommitment
+    }
+  }
+`;
+
+/**
+ * Fetches Semaphore identity commitments for a dispute's voter group.
+ */
+export async function fetchDisputeVoters(
+  bountyId: number
+): Promise<bigint[]> {
+  const data = await client.request<{
+    disputeVoters: { identityCommitment: string }[];
+  }>(DISPUTE_VOTERS_QUERY, { disputeId: bountyId.toString() });
+  return data.disputeVoters.map((v) => BigInt(v.identityCommitment));
 }
