@@ -26,6 +26,14 @@ function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
+function sanitizeUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (["http:", "https:"].includes(parsed.protocol)) return url;
+  } catch {}
+  return null;
+}
+
 export default function BountyPage({
   params,
 }: {
@@ -35,6 +43,7 @@ export default function BountyPage({
   const bountyId = Number(id);
   const searchParams = useSearchParams();
   const mockDisputed = searchParams.get("mock") === "disputed";
+  const mockExpired = searchParams.get("mock") === "expired";
   const { address } = useAccount();
 
   const { config: escrowConfig } = useEscrowConfig();
@@ -59,6 +68,10 @@ export default function BountyPage({
       .catch(() => {});
   }, [bountyId]);
 
+  const patchBounty = useCallback((patch: Partial<SubgraphBounty>) => {
+    setOnChain((prev) => prev ? { ...prev, ...patch } : prev);
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetchBounty(bountyId).then(setOnChain),
@@ -69,6 +82,21 @@ export default function BountyPage({
     ]).finally(() => setIsLoading(false));
   }, [bountyId, fetchApplications]);
 
+  // Keep trying to load subgraph data in background if it wasn't ready on first load
+  useEffect(() => {
+    if (!isLoading && !onChain && metadata) {
+      const interval = setInterval(() => {
+        fetchBounty(bountyId).then((b) => {
+          if (b && b.sponsor !== ZERO_ADDRESS) {
+            setOnChain(b);
+            clearInterval(interval);
+          }
+        });
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoading, onChain, metadata, bountyId]);
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-5xl px-6 py-8 sm:px-12">
@@ -77,7 +105,7 @@ export default function BountyPage({
     );
   }
 
-  if (!onChain || onChain.sponsor === ZERO_ADDRESS) {
+  if (!onChain && !metadata) {
     return (
       <div className="mx-auto max-w-5xl px-6 py-8 sm:px-12 text-center">
         <h1 className="text-2xl font-bold text-on-surface font-headline">
@@ -90,6 +118,9 @@ export default function BountyPage({
     );
   }
 
+  // Render optimistically: use subgraph data if available, fall back to metadata + defaults
+  const hasOnChain = onChain && onChain.sponsor !== ZERO_ADDRESS;
+
   const title = metadata?.title ?? `Bounty #${bountyId}`;
   const description = metadata?.description ?? "";
   const category = (metadata?.category ?? "Other") as BountyCategory;
@@ -98,13 +129,15 @@ export default function BountyPage({
     ? Math.floor(escrowConfig.reviewWindow / 86400)
     : 14;
 
-  const sponsor = onChain.sponsor;
-  const dev = onChain.dev;
-  const reward = BigInt(onChain.reward);
-  const status = mockDisputed ? "Disputed" : onChain.status as Bounty["status"];
-  const deadline = Number(onChain.deadline);
-  const submissionTime = Number(onChain.submissionTime ?? "0");
-  const proofURI = onChain.proofURI;
+  const sponsor = hasOnChain ? onChain.sponsor : (address ?? ZERO_ADDRESS);
+  const dev = hasOnChain ? onChain.dev : null;
+  const reward = hasOnChain ? BigInt(onChain.reward) : 0n;
+  const status = hasOnChain
+    ? (mockDisputed ? "Disputed" : onChain.status as Bounty["status"])
+    : "Open" as Bounty["status"];
+  const deadline = hasOnChain ? Number(onChain.deadline) : 0;
+  const submissionTime = hasOnChain ? Number(onChain.submissionTime ?? "0") : 0;
+  const proofURI = hasOnChain ? onChain.proofURI : null;
 
   const bounty: Bounty = {
     id: bountyId,
@@ -114,17 +147,17 @@ export default function BountyPage({
     sponsor,
     dev,
     reward,
-    bond: BigInt(onChain.bond ?? "0"),
+    bond: hasOnChain ? BigInt(onChain.bond ?? "0") : 0n,
     deadline,
-    bondStakeDeadline: Number(onChain.bondStakeDeadline ?? "0"),
+    bondStakeDeadline: hasOnChain ? Number(onChain.bondStakeDeadline ?? "0") : 0,
     submissionTime,
     descriptionHash: "",
     proofURIHash: "",
     status,
     createdAt: metadata?.created_at ?? "",
-    dispute: onChain.dispute
+    dispute: hasOnChain && onChain.dispute
       ? {
-          votingEnd: Number(onChain.dispute.votingEnd),
+          votingEnd: mockExpired ? Math.floor(Date.now() / 1000) - 60 : Number(onChain.dispute.votingEnd),
           approveCount: onChain.dispute.approveCount,
           rejectCount: onChain.dispute.rejectCount,
           status: onChain.dispute.status,
@@ -219,7 +252,7 @@ export default function BountyPage({
           )}
 
           {/* Deliverable */}
-          {proofURI && status === "Submitted" && (
+          {proofURI && ["Submitted", "Disputed", "Approved", "Resolved"].includes(status) && (
               <div
                 className="rounded-[2rem] bg-surface p-8 shadow-[0_16px_32px_rgba(115,81,102,0.03)] animate-fade-up"
                 style={{ animationDelay: "200ms" }}
@@ -227,10 +260,19 @@ export default function BountyPage({
                 <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-on-surface-muted font-headline">
                   Deliverable
                 </h2>
-                <p className="text-sm text-on-surface-muted">
-                  Deliverable submitted (proof hash on-chain).
-                </p>
-                {reviewDeadlineTs > 0 && (
+                {sanitizeUrl(proofURI!) ? (
+                  <a
+                    href={sanitizeUrl(proofURI!)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-secondary hover:underline break-all"
+                  >
+                    {proofURI!.length > 200 ? `${proofURI!.slice(0, 200)}...` : proofURI}
+                  </a>
+                ) : (
+                  <p className="text-sm text-on-surface-muted break-all">{proofURI}</p>
+                )}
+                {status === "Submitted" && reviewDeadlineTs > 0 && (
                   <p className="mt-3 text-sm text-error font-medium">
                     Review deadline: {formatDeadline(reviewDeadlineTs)} remaining
                   </p>
@@ -243,7 +285,7 @@ export default function BountyPage({
             className="animate-fade-up"
             style={{ animationDelay: "250ms" }}
           >
-            <ActionPanel bounty={bounty} onApplicationSubmitted={fetchApplications} />
+            <ActionPanel bounty={bounty} applications={applications} onApplicationSubmitted={fetchApplications} onBountyChanged={patchBounty} />
           </div>
 
           {/* Applications */}
@@ -256,6 +298,7 @@ export default function BountyPage({
                 applications={applications}
                 isSponsor={address?.toLowerCase() === sponsor.toLowerCase()}
                 bountyId={bountyId}
+                onBountyChanged={() => patchBounty({ status: "Applied" })}
               />
             </div>
           )}
@@ -330,18 +373,10 @@ export default function BountyPage({
               />
               <TimelineStep
                 label="Dev Assigned"
-                date={dev ? "assigned" : undefined}
                 completed={!!dev}
               />
               <TimelineStep
                 label="Submitted"
-                date={
-                  ["Submitted", "Approved", "Disputed", "Resolved"].includes(
-                    status
-                  )
-                    ? "delivered"
-                    : undefined
-                }
                 completed={[
                   "Submitted",
                   "Approved",
@@ -349,14 +384,14 @@ export default function BountyPage({
                   "Resolved",
                 ].includes(status)}
               />
+              {(status === "Disputed" || (status === "Resolved" && bounty.dispute)) && (
+                <TimelineStep
+                  label="Disputed"
+                  completed
+                />
+              )}
               <TimelineStep
                 label="Resolved"
-                date={
-                  status === "Approved" ||
-                  status === "Resolved"
-                    ? "complete"
-                    : undefined
-                }
                 completed={
                   status === "Approved" ||
                   status === "Resolved"

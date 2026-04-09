@@ -78,7 +78,6 @@ export function BountyList({
             className="rounded-[2rem] bg-surface p-8 animate-pulse h-64"
           />
         ))}
-        {ctaCard}
       </div>
     );
   }

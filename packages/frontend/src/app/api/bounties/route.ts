@@ -17,6 +17,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (title.length > 200 || description.length > 5000) {
+    return NextResponse.json(
+      { error: "Title (max 200) or description (max 5000) too long" },
+      { status: 400 }
+    );
+  }
+
   try {
     insertBountyMetadata(bountyId, title, description, category || "Other");
     return NextResponse.json({ success: true });

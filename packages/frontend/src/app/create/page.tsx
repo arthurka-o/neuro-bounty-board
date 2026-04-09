@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useAccount,
   useWriteContract,
@@ -26,7 +26,6 @@ export default function CreateBountyPage() {
   const [category, setCategory] = useState<BountyCategory>("Game Integration");
   const [reward, setReward] = useState("");
   const [deadline, setDeadline] = useState(30);
-  const [saving, setSaving] = useState(false);
 
   const {
     writeContract: writeApprove,
@@ -49,8 +48,8 @@ export default function CreateBountyPage() {
   const bondAmount = (rewardNum * bondBps) / 10_000;
   const rewardWei = rewardNum > 0 ? parseUnits(reward, 6) : 0n;
 
-  // Check current EURC allowance
-  const { data: allowance } = useReadContract({
+  // Check current EURC allowance — refetch after approval confirms
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: EURC_ADDRESS,
     abi: erc20Abi,
     functionName: "allowance",
@@ -60,7 +59,11 @@ export default function CreateBountyPage() {
     query: { enabled: !!address && rewardWei > 0n },
   });
 
-  const needsApproval = rewardWei > 0n && (allowance ?? 0n) < rewardWei;
+  useEffect(() => {
+    if (approveSuccess) refetchAllowance();
+  }, [approveSuccess, refetchAllowance]);
+
+  const needsApproval = rewardWei > 0n && !approveSuccess && (allowance ?? 0n) < rewardWei;
 
   function handleApprove() {
     if (!isConnected || rewardWei === 0n) return;
@@ -68,15 +71,19 @@ export default function CreateBountyPage() {
       address: EURC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [contracts.bountyEscrow.address, rewardWei],
+      args: [contracts.bountyEscrow.address, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
     });
   }
 
-  async function handleCreate() {
+  // Save metadata when tx is sent (we know the bountyId at this point)
+  const [createdBountyId, setCreatedBountyId] = useState<number | null>(null);
+
+  function handleCreate() {
     if (!isConnected || !reward || !title || !description) return;
 
     const duration = BigInt(deadline * 86400);
     const descHash = keccak256(toBytes(title + description));
+    const nextId = escrowConfig?.nextBountyId ?? 0;
 
     writeCreate(
       {
@@ -86,8 +93,7 @@ export default function CreateBountyPage() {
       },
       {
         onSuccess: async () => {
-          const nextId = escrowConfig?.nextBountyId ?? 0;
-          setSaving(true);
+          setCreatedBountyId(nextId);
           try {
             await fetch("/api/bounties", {
               method: "POST",
@@ -102,15 +108,20 @@ export default function CreateBountyPage() {
           } catch {
             // Metadata save failed but tx went through — not critical
           }
-          setSaving(false);
-          router.push(`/bounty/${nextId}`);
         },
       }
     );
   }
 
+  // Navigate only after tx is confirmed on-chain
+  useEffect(() => {
+    if (createSuccess && createdBountyId !== null) {
+      router.push(`/bounty/${createdBountyId}`);
+    }
+  }, [createSuccess, createdBountyId, router]);
+
   const isSubmitting =
-    approving || approveConfirming || creating || createConfirming || saving;
+    approving || approveConfirming || creating || createConfirming;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 sm:px-12">
@@ -277,11 +288,14 @@ export default function CreateBountyPage() {
                 disabled={
                   isSubmitting || !title || !description || rewardNum < 0.01
                 }
-                className="bg-secondary-container text-on-secondary-container px-10 py-4 rounded-full font-bold text-base font-headline shadow-lg hover:shadow-xl hover:brightness-95 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                className="bg-secondary-container text-on-secondary-container px-10 py-4 rounded-full font-bold text-base font-headline shadow-lg hover:shadow-xl hover:brightness-95 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
               >
-                {approving || approveConfirming
-                  ? "Approving EURC..."
-                  : `Approve €${rewardNum.toLocaleString()}`}
+                {(approving || approveConfirming) && <Spinner />}
+                {approving
+                  ? "Waiting for wallet..."
+                  : approveConfirming
+                    ? "Confirming..."
+                    : "Approve EURC"}
               </button>
             ) : (
               <button
@@ -289,16 +303,28 @@ export default function CreateBountyPage() {
                 disabled={
                   isSubmitting || !title || !description || rewardNum < 0.01
                 }
-                className="bg-secondary-container text-on-secondary-container px-10 py-4 rounded-full font-bold text-base font-headline shadow-lg hover:shadow-xl hover:brightness-95 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                className="bg-secondary-container text-on-secondary-container px-10 py-4 rounded-full font-bold text-base font-headline shadow-lg hover:shadow-xl hover:brightness-95 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
               >
-                {creating || createConfirming || saving
-                  ? "Posting..."
-                  : "Post Bounty"}
+                {(creating || createConfirming) && <Spinner />}
+                {creating
+                  ? "Waiting for wallet..."
+                  : createConfirming
+                    ? "Confirming..."
+                    : "Post Bounty"}
               </button>
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
   );
 }

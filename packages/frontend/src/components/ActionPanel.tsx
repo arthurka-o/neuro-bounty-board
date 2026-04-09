@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Bounty, formatDeadline } from "@/lib/types";
+import { useState, useCallback, useEffect } from "react";
+import { Bounty, Application, formatDeadline } from "@/lib/types";
+import type { SubgraphBounty } from "@/lib/subgraph";
 import {
   useAccount,
   useWriteContract,
@@ -28,7 +29,7 @@ function useActionTx() {
   return { writeContract, isPending, isConfirming, isSuccess, reset };
 }
 
-export function ActionPanel({ bounty, onApplicationSubmitted }: { bounty: Bounty; onApplicationSubmitted?: () => void }) {
+export function ActionPanel({ bounty, applications, onApplicationSubmitted, onBountyChanged }: { bounty: Bounty; applications?: Application[]; onApplicationSubmitted?: () => void; onBountyChanged?: (patch: Partial<SubgraphBounty>) => void }) {
   const { address, isConnected } = useAccount();
 
   if (!isConnected) {
@@ -54,11 +55,11 @@ export function ActionPanel({ bounty, onApplicationSubmitted }: { bounty: Bounty
       </h2>
 
       {bounty.status === "Open" && !isSponsor && (
-        <ApplySection bountyId={bounty.id} onSuccess={onApplicationSubmitted} />
+        <ApplySection bountyId={bounty.id} applications={applications} onSuccess={onApplicationSubmitted} />
       )}
 
       {bounty.status === "Open" && isSponsor && (
-        <CancelSection bountyId={bounty.id} />
+        <CancelSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Cancelled" })} />
       )}
 
       {bounty.status === "Applied" && isSponsor && (
@@ -68,11 +69,11 @@ export function ActionPanel({ bounty, onApplicationSubmitted }: { bounty: Bounty
       )}
 
       {bounty.status === "Applied" && isDev && (
-        <StakeBondSection bountyId={bounty.id} reward={bounty.reward} />
+        <StakeBondSection bountyId={bounty.id} reward={bounty.reward} onSuccess={() => onBountyChanged?.({ status: "Active" })} />
       )}
 
       {bounty.status === "Active" && isDev && (
-        <SubmitSection bountyId={bounty.id} />
+        <SubmitSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Submitted", submissionTime: String(Math.floor(Date.now() / 1000)) })} />
       )}
 
       {bounty.status === "Active" && isSponsor && (
@@ -86,7 +87,7 @@ export function ActionPanel({ bounty, onApplicationSubmitted }: { bounty: Bounty
       )}
 
       {bounty.status === "Submitted" && isSponsor && (
-        <ReviewSection bountyId={bounty.id} />
+        <ReviewSection bountyId={bounty.id} onBountyChanged={onBountyChanged} />
       )}
 
       {bounty.status === "Submitted" && isDev && (
@@ -96,18 +97,27 @@ export function ActionPanel({ bounty, onApplicationSubmitted }: { bounty: Bounty
       )}
 
       {bounty.status === "Disputed" && (
-        <VoteSection bountyId={bounty.id} dispute={bounty.dispute} />
+        <VoteSection bountyId={bounty.id} dispute={bounty.dispute} onSuccess={() => onBountyChanged?.({ status: "Disputed" })} />
       )}
 
-      {(bounty.status === "Approved" || bounty.status === "Resolved") && (
+      {bounty.status === "Approved" && (
         <p className="text-sm text-on-surface-muted">
-          This bounty has been{" "}
-          {bounty.status === "Approved" ? "completed" : "resolved"}.
+          This bounty has been completed. Funds released to the dev.
+        </p>
+      )}
+
+      {bounty.status === "Resolved" && bounty.dispute && (
+        <ResolvedDisputeSection dispute={bounty.dispute} />
+      )}
+
+      {bounty.status === "Resolved" && !bounty.dispute && (
+        <p className="text-sm text-on-surface-muted">
+          This bounty has been resolved.
         </p>
       )}
 
       {bounty.status === "Expired" && isSponsor && (
-        <ClaimExpiredSection bountyId={bounty.id} />
+        <ClaimExpiredSection bountyId={bounty.id} onSuccess={() => onBountyChanged?.({ status: "Expired" })} />
       )}
     </div>
   );
@@ -115,21 +125,30 @@ export function ActionPanel({ bounty, onApplicationSubmitted }: { bounty: Bounty
 
 // ─── Apply (off-chain) ──────────────────────────────────────────────
 
-function ApplySection({ bountyId, onSuccess }: { bountyId: number; onSuccess?: () => void }) {
+function ApplySection({ bountyId, applications, onSuccess }: { bountyId: number; applications?: Application[]; onSuccess?: () => void }) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [applied, setApplied] = useState(false);
   const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+
+  const alreadyApplied = address && applications?.some(
+    (a) => a.address.toLowerCase() === address.toLowerCase()
+  );
 
   async function handleApply() {
     if (!message.trim() || !address) return;
     setSubmitting(true);
     try {
-      await fetch(`/api/bounties/${bountyId}/applications`, {
+      const signature = await signMessageAsync({
+        message: `Apply to bounty #${bountyId}\n\n${message}`,
+      });
+      const res = await fetch(`/api/bounties/${bountyId}/applications`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, message }),
+        body: JSON.stringify({ address, message, signature }),
       });
+      if (!res.ok) throw new Error("Failed to submit");
       setMessage("");
       setApplied(true);
       onSuccess?.();
@@ -137,7 +156,7 @@ function ApplySection({ bountyId, onSuccess }: { bountyId: number; onSuccess?: (
     setSubmitting(false);
   }
 
-  if (applied) {
+  if (applied || alreadyApplied) {
     return <p className="text-sm text-secondary font-medium">Application submitted!</p>;
   }
 
@@ -166,8 +185,10 @@ function ApplySection({ bountyId, onSuccess }: { bountyId: number; onSuccess?: (
 
 // ─── Cancel ─────────────────────────────────────────────────────────
 
-function CancelSection({ bountyId }: { bountyId: number }) {
+function CancelSection({ bountyId, onSuccess }: { bountyId: number; onSuccess?: () => void }) {
   const { writeContract, isPending, isConfirming, isSuccess } = useActionTx();
+
+  useEffect(() => { if (isSuccess) onSuccess?.(); }, [isSuccess, onSuccess]);
 
   function handleCancel() {
     writeContract({
@@ -197,9 +218,11 @@ function CancelSection({ bountyId }: { bountyId: number }) {
 
 // ─── Submit deliverable ─────────────────────────────────────────────
 
-function SubmitSection({ bountyId }: { bountyId: number }) {
+function SubmitSection({ bountyId, onSuccess }: { bountyId: number; onSuccess?: () => void }) {
   const [proofURI, setProofURI] = useState("");
   const { writeContract, isPending, isConfirming, isSuccess } = useActionTx();
+
+  useEffect(() => { if (isSuccess) onSuccess?.(); }, [isSuccess, onSuccess]);
 
   function handleSubmit() {
     if (!proofURI.trim()) return;
@@ -222,6 +245,7 @@ function SubmitSection({ bountyId }: { bountyId: number }) {
         value={proofURI}
         onChange={(e) => setProofURI(e.target.value)}
         placeholder="https://github.com/..."
+        maxLength={2048}
         className="w-full rounded-lg border border-border bg-surface-dim px-4 py-3 text-sm text-on-surface placeholder:text-outline-variant focus:border-secondary/50 focus:outline-none focus:ring-2 focus:ring-secondary/10 transition-all"
       />
       <button
@@ -237,9 +261,12 @@ function SubmitSection({ bountyId }: { bountyId: number }) {
 
 // ─── Review (approve / reject) ──────────────────────────────────────
 
-function ReviewSection({ bountyId }: { bountyId: number }) {
+function ReviewSection({ bountyId, onBountyChanged }: { bountyId: number; onBountyChanged?: (patch: Partial<SubgraphBounty>) => void }) {
   const approve = useActionTx();
   const reject = useActionTx();
+
+  useEffect(() => { if (approve.isSuccess) onBountyChanged?.({ status: "Approved" }); }, [approve.isSuccess, onBountyChanged]);
+  useEffect(() => { if (reject.isSuccess) onBountyChanged?.({ status: "Disputed" }); }, [reject.isSuccess, onBountyChanged]);
 
   function handleApprove() {
     approve.writeContract({
@@ -289,10 +316,12 @@ function ReviewSection({ bountyId }: { bountyId: number }) {
 
 // ─── Stake Bond ─────────────────────────────────────────────────────
 
-function StakeBondSection({ bountyId, reward }: { bountyId: number; reward: bigint }) {
+function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; reward: bigint; onSuccess?: () => void }) {
   const { address } = useAccount();
   const approveTx = useActionTx();
   const stakeTx = useActionTx();
+
+  useEffect(() => { if (stakeTx.isSuccess) onSuccess?.(); }, [stakeTx.isSuccess, onSuccess]);
 
   const { data: bondBps } = useReadContract({
     ...contracts.bountyEscrow,
@@ -402,143 +431,120 @@ async function pollForAttestation(correlationId: string): Promise<TLSNAttestatio
   throw new Error("Attestation timed out — verifier may not have signing key configured");
 }
 
-type VoteStep = "prove" | "join" | "vote" | "done";
+type VoteStatus = "idle" | "proving" | "joining" | "voting" | "done";
 
-function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty["dispute"] }) {
-
-  const [proof, setProof] = useState<TLSNProof | null>(null);
-  const [proving, setProving] = useState(false);
+function VoteSection({ bountyId, dispute, onSuccess }: { bountyId: number; dispute?: Bounty["dispute"]; onSuccess?: () => void }) {
+  const [status, setStatus] = useState<VoteStatus>("idle");
+  const [statusText, setStatusText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [joining, setJoining] = useState(false);
-  const [voting, setVoting] = useState(false);
 
-  // Check localStorage for prior vote (temporary until on-chain nullifier check)
+  const { address } = useAccount();
   const voteKey = `voted:${bountyId}`;
-  const alreadyVoted = typeof window !== "undefined" && localStorage.getItem(voteKey) !== null;
-  const [step, setStep] = useState<VoteStep>(alreadyVoted ? "done" : "prove");
-
   const publicClient = usePublicClient();
   const { signMessageAsync } = useSignMessage();
   const { writeContractAsync } = useWriteContract();
-  const hasExtension = typeof window !== "undefined" && !!window.tlsn;
-  const hasAttestation = !!proof?.attestation;
 
-  // Step 1: Generate TLSNotary proof
-  const handleProve = useCallback(async () => {
+  // Check localStorage on mount
+  useEffect(() => {
+    if (localStorage.getItem(voteKey) !== null) setStatus("done");
+  }, [voteKey]);
+
+  const handleVote = useCallback(async (vote: 0 | 1) => {
     setError(null);
-    setProving(true);
-    try {
-      if (!window.tlsn) throw new Error("TLSNotary extension not found");
-
-      // Generate correlationId so the verifier stores the attestation for us
-      const correlationId = `vote_${bountyId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-      const pluginCode = await fetch("/plugins/twitch_sub.js").then((r) => r.text());
-      const result = await window.tlsn.execCode(pluginCode, {
-        requestId: correlationId,
-        sessionData: { correlationId },
-      });
-      const proofData: TLSNProof = JSON.parse(result);
-
-      // Poll the verifier for the signed attestation
-      const attestationData = await pollForAttestation(correlationId);
-      proofData.attestation = attestationData;
-
-      setProof(proofData);
-
-      // Check if this Twitch account already joined this dispute
-      const idMatch = proofData.results
-        .map((r) => r.value)
-        .join("")
-        .match(/"id":"(\d+)"/);
-      if (idMatch) {
-        const twitchIdHash = keccak256(encodePacked(["string"], [idMatch[1]]));
-        const alreadyJoined = await publicClient!.readContract({
-          ...contracts.disputeResolver,
-          functionName: "hasJoinedDispute",
-          args: [BigInt(bountyId), twitchIdHash],
-        });
-        if (alreadyJoined) {
-          setError("This Twitch account has already voted on this dispute.");
-          return;
-        }
-      }
-
-      setStep("join");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setProving(false);
-    }
-  }, [bountyId]);
-
-  // Two-step voting: 1) join group (public), 2) cast vote (anonymous via relayer later)
-  // TODO: Step 2 should go through a batching relayer for true vote anonymity.
-  // The relayer should collect votes and submit them in randomized batches
-  // to prevent timing correlation attacks.
-  const handleJoinAndVote = useCallback(async (vote: 0 | 1) => {
-    if (!proof?.attestation) return;
-    setError(null);
-    setJoining(true);
 
     try {
       const { getOrCreateIdentity, generateVoteProof } = await getSemaphore();
-      const identity = await getOrCreateIdentity(signMessageAsync);
 
-      // Check if already joined (e.g. join succeeded but vote failed on previous attempt)
+      // Step 1: Get or create Semaphore identity
+      setStatus("joining");
+      setStatusText("Creating voting identity...");
+      const identity = await getOrCreateIdentity(signMessageAsync, address);
+
+      // Step 2: Check if already in the dispute group
       const existingMembers = await fetchDisputeVoters(bountyId);
       const alreadyJoined = existingMembers.includes(identity.commitment);
 
       if (!alreadyJoined) {
-        const att = proof.attestation;
-        const revealedChunks = proof.results.map((r) =>
+        // Need TLSNotary proof to join
+        setStatus("proving");
+        setStatusText("Generating subscription proof...");
+
+        if (!window.tlsn) throw new Error("TLSNotary extension not found. Install it to vote.");
+
+        const correlationId = `vote_${bountyId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const pluginCode = await fetch("/plugins/twitch_sub.js").then((r) => r.text());
+        const result = await window.tlsn.execCode(pluginCode, {
+          requestId: correlationId,
+          sessionData: { correlationId },
+        });
+        const proofData: TLSNProof = JSON.parse(result);
+
+        setStatusText("Waiting for notary attestation...");
+        const attestation = await pollForAttestation(correlationId);
+
+        // Check if this Twitch account already joined
+        const idMatch = proofData.results
+          .map((r) => r.value)
+          .join("")
+          .match(/"id":"(\d+)"/);
+        if (idMatch) {
+          const twitchIdHash = keccak256(encodePacked(["string"], [idMatch[1]]));
+          const alreadyUsed = await publicClient!.readContract({
+            ...contracts.disputeResolver,
+            functionName: "hasJoinedDispute",
+            args: [BigInt(bountyId), twitchIdHash],
+          });
+          if (alreadyUsed) throw new Error("This Twitch account has already been used to vote on this dispute.");
+        }
+
+        // Join the dispute group
+        setStatus("joining");
+        setStatusText("Joining dispute group...");
+        const revealedChunks = proofData.results.map((r) =>
           toHex(new TextEncoder().encode(r.value)),
         );
-
-        const presentation = {
-          signature: att.signature,
-          attestationHash: att.attestationHash,
-          serverDomain: att.serverDomain,
-          timestamp: BigInt(att.timestamp),
-          commitments: att.commitments,
-          revealedChunks,
-          salts: att.salts,
-          chunkIndices: att.chunkIndices.map((i) => BigInt(i)),
-        };
-
-        // Step 1: Join dispute group (public — links Twitch identity to commitment)
         await writeContractAsync({
           ...contracts.disputeResolver,
           functionName: "joinDisputeGroup",
           args: [
             BigInt(bountyId),
-            [presentation],
-            att.serverDomain === "gql.twitch.tv" ? "vedal987" : "",
+            [{
+              signature: attestation.signature,
+              attestationHash: attestation.attestationHash,
+              serverDomain: attestation.serverDomain,
+              timestamp: BigInt(attestation.timestamp),
+              commitments: attestation.commitments,
+              revealedChunks,
+              salts: attestation.salts,
+              chunkIndices: attestation.chunkIndices.map((i) => BigInt(i)),
+            }],
+            attestation.serverDomain === "gql.twitch.tv" ? "vedal987" : "",
             identity.commitment,
           ],
         });
       }
 
-      setStep("vote");
-      setJoining(false);
-      setVoting(true);
+      // Wait for subgraph to index our membership
+      setStatus("voting");
+      setStatusText("Waiting for registration to sync...");
+      let members: bigint[] = [];
+      for (let poll = 0; poll < 10; poll++) {
+        members = await fetchDisputeVoters(bountyId);
+        if (members.includes(identity.commitment)) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      if (!members.includes(identity.commitment)) {
+        throw new Error("Timed out waiting for registration to be indexed. Try again in a moment.");
+      }
 
-      // Step 2: Cast anonymous vote
-      // Retry loop: if someone else joins between proof generation and tx mining,
-      // the root won't match. wagmi simulates first (eth_call), so it fails
-      // before spending gas. We retry with a fresh member list.
+      // Cast anonymous vote with retry for root mismatches
+      setStatusText("Generating zero-knowledge proof...");
       for (let attempt = 0; attempt < MAX_VOTE_RETRIES; attempt++) {
-        // Re-fetch members (our join tx may have just been indexed)
-        const members = await fetchDisputeVoters(bountyId);
-
-        const semaphoreProof = await generateVoteProof(
-          identity,
-          members,
-          bountyId,
-          vote,
-        );
+        members = await fetchDisputeVoters(bountyId);
+        const semaphoreProof = await generateVoteProof(identity, members, bountyId, vote);
 
         try {
+          setStatusText("Submitting vote...");
           await writeContractAsync({
             ...contracts.disputeResolver,
             functionName: "castVote",
@@ -556,30 +562,30 @@ function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty
           });
 
           localStorage.setItem(voteKey, "1");
-          setStep("done");
+          setStatus("done");
+          onSuccess?.();
           return;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          const isRootMismatch = msg.includes("MerkleTreeRoot") || msg.includes("InvalidProof");
-          if (isRootMismatch && attempt < MAX_VOTE_RETRIES - 1) {
-            continue;
-          }
+          if ((msg.includes("MerkleTreeRoot") || msg.includes("InvalidProof")) && attempt < MAX_VOTE_RETRIES - 1) continue;
           throw err;
         }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setJoining(false);
-      setVoting(false);
+      setStatus("idle");
     }
-  }, [proof, bountyId, signMessageAsync, writeContractAsync]);
+  }, [bountyId, signMessageAsync, writeContractAsync, publicClient, voteKey, onSuccess]);
+
+  const resolveTx = useActionTx();
+  useEffect(() => { if (resolveTx.isSuccess) onSuccess?.(); }, [resolveTx.isSuccess, onSuccess]);
 
   const votingActive = dispute && (dispute.status === "Voting" || dispute.status === "Extended");
   const timeLeft = dispute ? Math.max(0, dispute.votingEnd - Math.floor(Date.now() / 1000)) : 0;
+  const votingEnded = votingActive && timeLeft === 0;
   const hoursLeft = Math.floor(timeLeft / 3600);
   const daysLeft = Math.floor(hoursLeft / 24);
-  const busy = proving || joining || voting;
+  const busy = status !== "idle" && status !== "done";
 
   return (
     <div className="space-y-5">
@@ -602,85 +608,43 @@ function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty
         </div>
       )}
 
-      {/* Step 1: Prove subscription */}
-      {step === "prove" && (
+      {/* Vote buttons — visible when idle and voting still active */}
+      {status === "idle" && !votingEnded && (
         <>
           <p className="text-sm text-on-surface-muted">
-            This bounty is in dispute. To vote, prove you&apos;re subscribed to the channel.
+            This bounty is in dispute. Vote on whether the deliverable meets the requirements.
           </p>
-
-          {!hasExtension ? (
-            <div className="rounded-xl border border-border bg-surface-dim p-4 text-sm text-on-surface-muted">
-              <p className="font-medium text-on-surface mb-1">TLSNotary extension required</p>
-              <p>Install the TLSNotary browser extension to generate a subscription proof.</p>
-            </div>
-          ) : (
+          <div className="flex gap-3">
             <button
-              onClick={handleProve}
-              disabled={proving}
-              className="rounded-full bg-[#9146FF] text-white px-6 py-3 text-sm font-bold font-headline hover:brightness-110 transition-all active:scale-95 disabled:opacity-50"
+              onClick={() => handleVote(1)}
+              disabled={busy}
+              className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
             >
-              {proving ? "Generating proof..." : "Prove Twitch Subscription"}
+              Vote: Approve
             </button>
-          )}
-        </>
-      )}
-
-      {/* Step 2: Proof ready — show result + vote buttons */}
-      {step === "join" && proof && (
-        <>
-          <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-4">
-            <p className="text-sm font-medium text-secondary mb-1">Subscription verified</p>
-            {hasAttestation ? (
-              <p className="text-xs text-on-surface-muted">
-                Signed by notary &mdash; ready to submit on-chain
-              </p>
-            ) : (
-              <p className="text-xs text-error">
-                No attestation found. The notary server may not have signing enabled.
-              </p>
-            )}
+            <button
+              onClick={() => handleVote(0)}
+              disabled={busy}
+              className="rounded-full border border-error/30 bg-error/5 px-6 py-3 text-sm font-bold text-error font-headline hover:bg-error/10 transition-all disabled:opacity-50"
+            >
+              Vote: Reject
+            </button>
           </div>
-
-          {hasAttestation && (
-            <>
-              <p className="text-sm text-on-surface-muted">
-                Vote on whether the deliverable meets the bounty requirements.
-                This will sign a message, join the dispute group, and cast your anonymous vote.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleJoinAndVote(1)}
-                  disabled={busy}
-                  className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {joining ? "Joining group..." : voting ? "Casting vote..." : "Vote: Approve"}
-                </button>
-                <button
-                  onClick={() => handleJoinAndVote(0)}
-                  disabled={busy}
-                  className="rounded-full border border-error/30 bg-error/5 px-6 py-3 text-sm font-bold text-error font-headline hover:bg-error/10 transition-all disabled:opacity-50"
-                >
-                  {joining ? "Joining group..." : voting ? "Casting vote..." : "Vote: Reject"}
-                </button>
-              </div>
-            </>
-          )}
         </>
       )}
 
-      {/* Step 3: Voting in progress */}
-      {step === "vote" && (
+      {/* Progress indicator */}
+      {busy && (
         <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-4">
-          <p className="text-sm font-medium text-secondary">Generating zero-knowledge proof...</p>
+          <p className="text-sm font-medium text-secondary">{statusText}</p>
           <p className="text-xs text-on-surface-muted mt-1">
             This may take a moment. Your vote will be anonymous.
           </p>
         </div>
       )}
 
-      {/* Step 4: Done */}
-      {step === "done" && (
+      {/* Done */}
+      {status === "done" && (
         <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-4">
           <p className="text-sm font-medium text-secondary">Vote submitted!</p>
           <p className="text-xs text-on-surface-muted mt-1">
@@ -689,27 +653,88 @@ function VoteSection({ bountyId, dispute }: { bountyId: number; dispute?: Bounty
         </div>
       )}
 
-      {error && <p className="text-sm text-error">{error}</p>}
-
-      {/* Debug: raw proof data */}
-      {proof && (
-        <details className="text-xs">
-          <summary className="cursor-pointer text-outline hover:text-on-surface-muted transition-colors">
-            Raw proof data
-          </summary>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-dim p-3 text-[10px] leading-relaxed text-on-surface-muted">
-            {JSON.stringify(proof, null, 2)}
-          </pre>
-        </details>
+      {/* Voting ended — show results + resolve button */}
+      {votingEnded && dispute && !resolveTx.isSuccess && (
+        <div className="space-y-4">
+          <div className="rounded-xl bg-surface-dim p-4 space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-on-surface-muted">
+              Voting ended — results
+            </p>
+            <div className="flex gap-6 text-sm">
+              <span className="text-on-surface-muted">
+                Approve{" "}
+                <span className="font-bold text-secondary">{dispute.approveCount}</span>
+              </span>
+              <span className="text-on-surface-muted">
+                Reject{" "}
+                <span className="font-bold text-error">{dispute.rejectCount}</span>
+              </span>
+            </div>
+            <p className={`text-sm font-medium ${dispute.approveCount > dispute.rejectCount ? "text-secondary" : "text-error"}`}>
+              {dispute.approveCount > dispute.rejectCount
+                ? "Dev wins — deliverable approved by community"
+                : dispute.rejectCount > dispute.approveCount
+                  ? "Sponsor wins — deliverable rejected by community"
+                  : "Tie — will escalate to admin resolution"}
+            </p>
+          </div>
+          <button
+            onClick={() => resolveTx.writeContract({
+              ...contracts.disputeResolver,
+              functionName: "resolveDispute",
+              args: [BigInt(bountyId)],
+            })}
+            disabled={resolveTx.isPending || resolveTx.isConfirming}
+            className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
+          >
+            {resolveTx.isPending || resolveTx.isConfirming ? "Resolving..." : "Finalize Dispute"}
+          </button>
+        </div>
       )}
+
+      {resolveTx.isSuccess && (
+        <p className="text-sm text-secondary font-medium">Dispute resolved!</p>
+      )}
+
+      {error && <p className="text-sm text-error">{error}</p>}
+    </div>
+  );
+}
+
+// ─── Resolve dispute ────────────────────────────────────────────────
+
+function ResolvedDisputeSection({ dispute }: { dispute: NonNullable<Bounty["dispute"]> }) {
+  const devWins = dispute.approveCount > dispute.rejectCount;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className={`text-sm font-bold ${devWins ? "text-secondary" : "text-error"}`}>
+          {devWins ? "Dev wins" : "Sponsor wins"} — dispute resolved
+        </span>
+      </div>
+      <div className="flex gap-6 text-sm">
+        <span className="text-on-surface-muted">
+          Approve <span className="font-bold text-secondary">{dispute.approveCount}</span>
+        </span>
+        <span className="text-on-surface-muted">
+          Reject <span className="font-bold text-error">{dispute.rejectCount}</span>
+        </span>
+      </div>
+      <p className="text-xs text-on-surface-muted">
+        {devWins
+          ? "Funds released to the dev. Bond returned."
+          : "Funds returned to the sponsor. Dev bond forfeited."}
+      </p>
     </div>
   );
 }
 
 // ─── Claim expired bounty ───────────────────────────────────────────
 
-function ClaimExpiredSection({ bountyId }: { bountyId: number }) {
+function ClaimExpiredSection({ bountyId, onSuccess }: { bountyId: number; onSuccess?: () => void }) {
   const { writeContract, isPending, isConfirming, isSuccess } = useActionTx();
+
+  useEffect(() => { if (isSuccess) onSuccess?.(); }, [isSuccess, onSuccess]);
 
   function handleClaim() {
     writeContract({

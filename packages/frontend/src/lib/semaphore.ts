@@ -5,17 +5,38 @@ import { keccak256, encodePacked, type Hex } from "viem";
 
 const SCOPE_PREFIX = keccak256(encodePacked(["string"], ["neuro-bounty-board.dispute"]));
 
+const IDENTITY_STORAGE_PREFIX = "semaphore-identity-sig:";
+
 /**
  * Derives a deterministic Semaphore identity from a wallet signature.
  * The user signs a fixed message; the signature becomes the identity's private key.
+ * Cached in localStorage per wallet address to avoid re-signing on every page load.
  */
 export async function getOrCreateIdentity(
   signMessage: (args: { message: string }) => Promise<Hex>,
+  address?: string,
 ): Promise<Identity> {
+  const key = address ? `${IDENTITY_STORAGE_PREFIX}${address.toLowerCase()}` : null;
+  if (key) {
+    const cached = localStorage.getItem(key);
+    if (cached) return new Identity(cached as Hex);
+  }
+
   const signature = await signMessage({
     message: "Sign to create your anonymous voting identity for Neuro Bounty Board.\n\nThis does not cost gas.",
   });
+  if (key) localStorage.setItem(key, signature);
   return new Identity(signature);
+}
+
+/**
+ * Returns the cached identity commitment without prompting a signature, or null if not cached.
+ */
+export function getCachedCommitment(address?: string): bigint | null {
+  if (!address) return null;
+  const cached = localStorage.getItem(`${IDENTITY_STORAGE_PREFIX}${address.toLowerCase()}`);
+  if (!cached) return null;
+  return new Identity(cached as Hex).commitment;
 }
 
 /**
