@@ -50,22 +50,22 @@ A trustless, community-funded bounty board for VTuber communities (initial targe
 
 ### Cancellation
 
-15. **Before a dev is approved** — sponsor can cancel the bounty at any time and receive a full refund.
-16. **After a dev is approved** — sponsor cannot cancel. They must wait for the dev to submit or for the deadline to expire.
+15. **Before bond is staked** — sponsor can cancel the bounty at any time and receive a full refund (even after approving a dev, as long as the dev hasn't staked their bond).
+16. **After bond is staked** — sponsor cannot cancel. They must wait for the dev to submit or for the deadline to expire.
 
 ### Concrete Example
 
-> **Bounty:** "Osu! beatmap request system via channel points — 2,000 EURC"
+> **Bounty:** "Osu! beatmap request system via channel points — €2,000"
 >
-> - `alice.eth` posts bounty, locks 2,000 EURC in escrow, sets a 30-day implementation deadline
-> - `dev_shinji.eth` applies to the bounty
-> - Alice reviews dev_shinji's profile, approves them. dev_shinji stakes 100 EURC bond (5%). 30-day clock starts.
-> - After 2 weeks, dev submits: links GitHub repo + demo video
-> - Alice rejects: "latency is too high, unusable."
+> - Vedal posts bounty, locks €2,000 in escrow, sets a 30-day implementation deadline
+> - Evil applies to the bounty
+> - Vedal reviews Evil's profile, approves them. Evil stakes €100 bond (5%). 30-day clock starts.
+> - After 2 weeks, Evil submits: links GitHub repo + demo video
+> - Vedal rejects: "latency is too high, unusable."
 > - Dispute opens. 14-day voting window. Fresh Semaphore group created.
 > - 173 verified vedal987 subscribers generate TLSNotary proofs, join the dispute group, and cast anonymous votes: 142 approve, 31 reject (82% approval — supermajority reached, quorum met)
-> - Escrow releases 2,000 EURC to dev_shinji, returns 100 EURC bond
-> - Alice's rejection is overridden. On-chain record shows community consensus.
+> - Escrow releases €2,000 to Evil, returns €100 bond
+> - Vedal's rejection is overridden. On-chain record shows community consensus.
 
 ---
 
@@ -116,7 +116,7 @@ A trustless, community-funded bounty board for VTuber communities (initial targe
 |  - approveDev / stakeBond                        |
 |  - submitDeliverable                             |
 |  - approveDeliverable / rejectDeliverable        |
-|  - claimOnTimeout                                |
+|  - claimOnTimeout / claimOnExpiredReview          |
 |                                                  |
 |  DisputeResolver.sol                             |
 |  - openDispute() — creates per-dispute group     |
@@ -264,16 +264,18 @@ Instead of a permanent voter group, a **fresh Semaphore group** is created for e
 ### Bounty States
 
 ```
-Open -> Applied -> Active -> Submitted -> Approved
-  |                  |          |
-  |                  |          +-> Disputed -> Resolved
-  |                  |                           |
-  |                  |                           +-> Escalated -> Resolved
-  |                  |
-  |                  +-> Expired (dev missed deadline)
+Open -> Active -> Submitted -> Approved
+  |       |          |
+  |       |          +-> Disputed -> Resolved
+  |       |                           |
+  |       |                           +-> Escalated -> Resolved
+  |       |
+  |       +-> Expired (dev missed deadline)
   |
-  +-> Cancelled (sponsor cancelled before dev approved)
+  +-> Cancelled (sponsor cancelled before dev staked bond)
 ```
+
+Note: "Applied" is a UI-only status shown when a dev has been approved but hasn't staked their bond yet. On-chain, the bounty remains in `Open` status until `stakeBond()` transitions it to `Active`.
 
 ### Categories
 
@@ -323,7 +325,7 @@ Manages dispute voting with TLSNotary verification and Semaphore anonymous votin
 
 Pure functions for TLSNotary proof verification:
 - `recoverSigner()` — EIP-191 signature recovery via `ecrecover`
-- `verifyAttestationHash()` — recomputes and validates `keccak256(domain, commitments, timestamp)`
+- `verifyAttestationHash()` — recomputes and validates `keccak256(abi.encodePacked(domain, packCommitments(commitments), timestamp))`
 - `verifyChunkCommitments()` — verifies `keccak256(chunk || salt) == commitment`
 - `verifyDomain()` — checks server domain matches expected
 - `containsBytes()` — substring search in byte arrays
@@ -340,7 +342,7 @@ Pure functions for TLSNotary proof verification:
 | **TLSNotary Verifier Server** | MPC-TLS counterpart, signs attestations with secp256k1 key | Trusted — mitigated by M-of-N with independent operators |
 | **WebSocket Proxy** (built into verifier) | Bridges browser WebSocket to TCP for TLS connections | Zero trust — forwards encrypted bytes it can't read |
 | **Frontend** (Next.js) | UI for browsing bounties, triggering proofs, submitting votes | No trust needed — all verification is on-chain |
-| **Subgraph** (The Graph) | Indexes on-chain events for fast frontend queries | No trust needed — derived from on-chain data |
+| **Subgraph** (Goldsky) | Indexes on-chain events for fast frontend queries | No trust needed — derived from on-chain data |
 
 ### TLSNotary Verifier Server
 
@@ -356,20 +358,12 @@ Each Notary operator runs an instance of the TLSNotary verifier server. This is 
 | Endpoint | Protocol | Purpose |
 |----------|----------|---------|
 | `/health` | HTTP GET | Health check |
-| `/session` | WebSocket | Create MPC-TLS session |
-| `/verifier?sessionId=<id>` | WebSocket | Run verification protocol |
-| `/proxy?token=<host>` | WebSocket | WebSocket-to-TCP proxy |
+| `/proxy?token=<host>` | WebSocket | WebSocket-to-TCP proxy for TLS bridging |
+| `/attestation/:correlationId` | HTTP GET | Poll for signed attestation after proof |
 
 **Deployment:**
 
-```bash
-cd packages/verifier
-cargo run                           # Development
-cargo build --release               # Production binary
-./target/release/tlsn-verifier-server
-```
-
-Listens on `http://0.0.0.0:7047` by default. For production, put behind nginx with SSL termination and long WebSocket timeouts (MPC-TLS operations take ~10-15 seconds).
+The verifier source lives outside this repo (see CLAUDE.md for deploy instructions). Production instance at `https://notary.reyvon.gay`, behind Caddy with auto-SSL.
 
 **Configuration** (`config.yaml`):
 - Webhook endpoints (optional, for backend integration)
@@ -389,6 +383,7 @@ Listens on `http://0.0.0.0:7047` by default. For production, put behind nginx wi
 ```
 neuro-bounty-board/                    # pnpm monorepo root
 ├── CLAUDE.md
+├── README.md
 ├── docs/
 │   ├── SPEC.md                        # This file
 │   └── tlsnotary-reference.md         # TLSNotary protocol reference
@@ -397,33 +392,41 @@ neuro-bounty-board/                    # pnpm monorepo root
 │   │   ├── src/
 │   │   │   ├── BountyEscrow.sol
 │   │   │   ├── DisputeResolver.sol
-│   │   │   └── libraries/
-│   │   │       └── TLSNVerifier.sol
+│   │   │   ├── libraries/
+│   │   │   │   └── TLSNVerifier.sol
+│   │   │   └── interfaces/
+│   │   │       ├── IBountyEscrow.sol
+│   │   │       └── ISemaphore.sol
 │   │   ├── test/
-│   │   │   ├── BountyEscrow.t.sol
-│   │   │   ├── DisputeResolver.t.sol
-│   │   │   └── TLSNVerifier.t.sol
 │   │   ├── script/
-│   │   │   ├── Deploy.s.sol
-│   │   │   └── UpgradeDisputeResolver.s.sol
 │   │   ├── lib/forge-std/             # git submodule
 │   │   └── foundry.toml
-│   └── frontend/                      # Next.js App Router
-│       ├── public/
-│       │   └── plugins/
-│       │       └── twitch_sub.js      # Built TLSNotary plugin
-│       └── src/
-│           ├── app/
-│           │   ├── page.tsx           # Bounty listing
-│           │   ├── bounty/[id]/       # Bounty detail
-│           │   └── create/            # Post new bounty
-│           ├── components/
-│           │   └── ActionPanel.tsx     # Includes VoteSection with TLSNotary flow
-│           └── lib/
-│               ├── types.ts           # Shared types & constants
-│               ├── contracts.ts       # Contract ABIs & addresses
-│               ├── hooks.ts           # Custom hooks (useDispute, etc.)
-│               └── subgraph.ts        # Subgraph query functions
+│   ├── frontend/                      # Next.js App Router
+│   │   ├── public/plugins/
+│   │   │   └── twitch_sub.js          # Built TLSNotary plugin
+│   │   └── src/
+│   │       ├── app/
+│   │       │   ├── page.tsx           # Bounty listing
+│   │       │   ├── bounty/[id]/       # Bounty detail
+│   │       │   ├── create/            # Post new bounty
+│   │       │   └── api/               # API routes (metadata, applications)
+│   │       ├── components/
+│   │       │   ├── ActionPanel.tsx     # All bounty actions + VoteSection
+│   │       │   ├── ApplicationList.tsx
+│   │       │   ├── BountyList.tsx
+│   │       │   └── BountyCard.tsx
+│   │       └── lib/
+│   │           ├── types.ts           # Shared types & constants
+│   │           ├── contracts.ts       # Contract addresses
+│   │           ├── abi/               # Contract ABIs
+│   │           ├── hooks.ts           # wagmi read hooks
+│   │           ├── subgraph.ts        # Subgraph query functions
+│   │           ├── semaphore.ts       # Semaphore identity & proof helpers
+│   │           └── db.ts             # SQLite (off-chain metadata)
+│   └── subgraph/                      # Goldsky subgraph
+│       ├── schema.graphql
+│       ├── subgraph.yaml
+│       └── src/bounty-escrow.ts
 ├── mise.toml
 ├── package.json
 └── pnpm-workspace.yaml
@@ -436,27 +439,28 @@ neuro-bounty-board/                    # pnpm monorepo root
 ### Done
 - Monorepo scaffold (pnpm workspace, Foundry, Next.js)
 - Wallet connection (wagmi + RainbowKit, Base chain)
-- Frontend pages: bounty listing, detail, create — with category filters, stats, design system
+- Full bounty lifecycle UI: listing, detail, create, action panel, applications
 - BountyEscrow.sol — full bounty lifecycle (UUPS upgradeable)
 - DisputeResolver.sol — per-dispute Semaphore groups, TLSNotary M-of-N verification, two-tx voting flow
 - TLSNVerifier.sol — on-chain TLSNotary proof verification library
-- 139 tests passing (BountyEscrow, DisputeResolver, TLSNVerifier)
-- Contracts deployed and verified on Base mainnet
-- Subgraph for indexing on-chain events
-- Frontend wired: reads from subgraph + chain, create form calls contract
+- Contracts deployed and verified on Base mainnet (Sourcify)
+- Subgraph (Goldsky) indexing all on-chain events
 - SQLite for off-chain metadata (title, description, category, applications)
-- TLSNotary browser extension plugin (`twitch_sub.plugin.ts`) — proves Twitch subscription
-- Frontend VoteSection — TLSNotary extension detection, proof generation, proof display
-- Real TLSNotary proof captured and validated against contract tests
+- Full frontend wiring: create bounty, approve dev, stake bond, submit deliverable, approve/reject, vote on disputes
+- TLSNotary browser extension plugin + verifier server deployed
+- Semaphore identity management + ZK proof generation in frontend
+- Single-click vote flow with cached identity and retry on failure
+- Optimistic UI updates after transactions (no polling)
+- Wallet signature verification for applications
+- Dispute resolution UI: vote results, finalize button, outcome display
+- Input sanitization and length limits on API routes
 
 ### Next Up
-- Wire `joinDisputeGroup()` contract call from frontend (with TLSNotary proof data)
-- Semaphore identity management in frontend (generate/store identity commitment)
-- Semaphore proof generation for `castVote()` in frontend
-- Deploy and register Notary server keys on-chain
-- Recruit 2 additional independent Notary operators (for 2-of-3)
-- EURC approval flow in frontend
-- Wire remaining action buttons (approve dev, stake bond)
+- Deploy frontend to production
+- Relayer for anonymous voting (currently `msg.sender` leaks voter identity)
+- Recruit additional independent Notary operators (for 2-of-3)
+- Subgraph: add timestamps for timeline events
+- Exclude sponsor/dev from dispute voting
 
 ---
 
@@ -486,7 +490,7 @@ Adding a member to a Semaphore group changes the Merkle root. A Semaphore proof 
 - Low gas costs (L2)
 - EURC natively available
 - Semaphore V4 deployed
-- Good tooling support (Foundry, The Graph)
+- Good tooling support (Foundry, Goldsky)
 
 ---
 
@@ -497,7 +501,7 @@ Adding a member to a Semaphore group changes the Merkle root. A Semaphore proof 
 | TLS data authenticity | Twitch's server is honest | Standard web trust |
 | MPC-TLS correctness | TLSNotary protocol is sound | Open source, Ethereum Foundation project |
 | Notary honesty | Notary operators don't forge attestations | M-of-N independent operators |
-| On-chain verification | Smart contract correctly verifies proofs | Open source, 139 tests, auditable |
+| On-chain verification | Smart contract correctly verifies proofs | Open source, tested, auditable |
 | Vote anonymity | Semaphore protocol is sound | Battle-tested (Worldcoin), Ethereum Foundation |
 | Sybil resistance | One Twitch account = one vote per dispute | Twitch user ID extracted from proof on-chain |
 | Channel verification | Proof contains correct channel displayName | Exact pattern match on-chain |
@@ -512,4 +516,4 @@ Adding a member to a Semaphore group changes the Merkle root. A Semaphore proof 
 - **Quorum tuning** — starting at 10 minimum votes. May need adjusting based on actual voter turnout.
 - **Voter incentives** — revisit after v1 launch based on participation rates.
 - **Governance** — single admin for v1, potentially multisig/DAO later.
-- **Notary signing format** — current `TLSNVerifier.Presentation` struct is designed for future notary-signed attestations. The exact serialization format from the TLSNotary verifier server needs to be finalized when notary signing is implemented.
+- **Sponsor/dev voting exclusion** — need a mechanism to prevent bounty parties from voting on their own disputes. Design options under consideration (see project notes).

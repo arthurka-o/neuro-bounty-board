@@ -4,11 +4,12 @@ Trustless, community-funded bounty board for VTuber communities (Neuro-sama ecos
 
 ## Project Structure
 
-pnpm monorepo with two packages:
+pnpm monorepo with three packages:
 
 ```
 packages/contracts/   — Foundry (Solidity) smart contracts
 packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
+packages/subgraph/    — Goldsky subgraph for indexing on-chain events
 ```
 
 ## Tooling
@@ -31,7 +32,6 @@ packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
 - **Cards:** Use `rounded-[2rem]`, white bg (`bg-surface`), soft shadows.
 - **Rewards:** Display as `€{amount}` in UI (EURC on-chain, abstracted away from users).
 - **Shared constants** in `src/lib/types.ts`: `BOUNTY_CATEGORIES`, `DEADLINE_OPTIONS`, plus all TypeScript types.
-- **Mock data** in `src/lib/mock-data.ts` — will be replaced with contract reads.
 - Arthur has full autonomy delegated to Claude for frontend. No review needed on frontend code.
 
 ## Contracts
@@ -39,7 +39,7 @@ packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
 - **Chain:** Base mainnet for testing (Ethereum mainnet for production).
 - **Currency:** EURC (Circle's Euro stablecoin, ERC-20).
 - **Contracts:** BountyEscrow.sol, DisputeResolver.sol (+ TLSNVerifier.sol library) — all UUPS upgradeable.
-- **Identity:** TLSNotary MPC-TLS for Twitch subscription verification (replaces Reclaim Protocol).
+- **Identity:** TLSNotary MPC-TLS for Twitch subscription verification.
 - **External contracts on Base:**
   - Semaphore V4: `0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D`
   - EURC: `0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42`
@@ -85,11 +85,23 @@ mise exec -- goldsky subgraph delete neuro-bounty-board/<old-version> --force
 ```
 
 ### Infrastructure
-- TLSNotary Verifier Server: `https://notary.reyvon.gay` (Hetzner, 88.99.168.111)
+All services on Hetzner box `root@88.99.168.111`, Caddy reverse proxy with auto-SSL.
+
+- **Frontend:** `https://reyvon.gay`
+  - App: `/opt/neuro-bounty-board/packages/frontend`
+  - DB: `/opt/neuro-bounty-board/packages/frontend/bounties.db` (SQLite, WAL mode — copy all 3 files: `.db`, `.db-wal`, `.db-shm`)
+  - Service: `systemctl {start,stop,restart,status} bounty-board`
+  - Logs: `journalctl -u bounty-board -f`
+- **TLSNotary Verifier Server:** `https://notary.reyvon.gay`
   - Health: `https://notary.reyvon.gay/health`
   - WebSocket proxy: `wss://notary.reyvon.gay/proxy?token=<host>`
   - Attestation polling: `https://notary.reyvon.gay/attestation/:correlationId`
-  - Caddy reverse proxy with auto-SSL, systemd service `tlsn-verifier`
+  - Service: `systemctl {start,stop,restart,status} tlsn-verifier`
+
+### Deploying the Frontend
+```bash
+ssh root@88.99.168.111 "cd /opt/neuro-bounty-board && git pull && pnpm install && cd packages/frontend && pnpm build && systemctl restart bounty-board"
+```
 
 ### Deploying the Verifier Server
 Source: `../TLSNotary-test/packages/verifier/` (Rust). Server: `root@88.99.168.111`.
@@ -119,9 +131,9 @@ Server layout:
 
 ### Next Up
 - Relayer for anonymous voting (currently `msg.sender` leaks voter identity despite Semaphore ZK proofs)
-- Frontend reactivity fixes (action panel doesn't update after tx confirms, requires refresh)
-- EURC approval UX improvements (max approval, spinner, refresh after approve)
-- Batch frontend polish (see memory for full TODO list)
+- Subgraph: add timestamps for DevApproved, BondStaked events
+- Exclude sponsor/dev from dispute voting (design TBD)
+- Cancelled bounties filtering + separate tab
 
 ## Conventions
 
