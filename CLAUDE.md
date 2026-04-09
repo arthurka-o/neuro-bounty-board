@@ -1,6 +1,6 @@
 # Neuro Bounty Board
 
-Trustless, community-funded bounty board for VTuber communities (Neuro-sama ecosystem). See `docs/SPEC.md` for full architecture and `docs/reclaim-reference.md` for Reclaim Protocol integration details. See `docs/semaphore-reference.md` for Semaphore V4 integration reference (identity, groups, proofs, on-chain contracts, deployed addresses).
+Trustless, community-funded bounty board for VTuber communities (Neuro-sama ecosystem). See `docs/SPEC.md` for full architecture and `docs/tlsnotary-reference.md` for TLSNotary integration details.
 
 ## Project Structure
 
@@ -38,10 +38,10 @@ packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
 
 - **Chain:** Base mainnet for testing (Ethereum mainnet for production).
 - **Currency:** EURC (Circle's Euro stablecoin, ERC-20).
-- **Contracts:** BountyEscrow.sol, DisputeResolver.sol, VoterRegistry.sol — all UUPS upgradeable.
+- **Contracts:** BountyEscrow.sol, DisputeResolver.sol (+ TLSNVerifier.sol library) — all UUPS upgradeable.
+- **Identity:** TLSNotary MPC-TLS for Twitch subscription verification (replaces Reclaim Protocol).
 - **External contracts on Base:**
   - Semaphore V4: `0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D`
-  - Reclaim Verifier: `0xB51FCb41fF11e0445600f63D8c38f955DcCB0B2c`
   - EURC: `0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42`
 - Arthur handles contract review. See SPEC.md for full contract interface spec.
 
@@ -50,26 +50,78 @@ packages/frontend/    — Next.js 16 + Tailwind CSS + wagmi/RainbowKit
 ### Done
 - Monorepo scaffold (pnpm workspace, Foundry, Next.js)
 - Wallet connection (wagmi + RainbowKit, Base chain)
-- Bounty listing page with category filter, stats, CTA card
-- Bounty detail page with description, sidebar (details + timeline), action panel, application list
-- Create bounty page with form (title, description, category, reward, deadline)
-- BountyEscrow.sol, DisputeResolver.sol, VoterRegistry.sol — all UUPS upgradeable, 93 tests passing
+- Full bounty lifecycle UI: listing, detail, create, action panel, applications
+- BountyEscrow.sol, DisputeResolver.sol (+ TLSNVerifier.sol library) — all UUPS upgradeable
+- DisputeResolver: two-step voting — `joinDisputeGroup()` (public identity) + `castVote()` (anonymous ZK proof)
+- TLSNotary MPC-TLS verification for Twitch subscription (sybil resistance)
 - Contracts deployed and verified on Base mainnet (Sourcify)
-- Frontend partially wired: reads bounties from chain + SQLite, create form calls contract
+- Subgraph (Goldsky) indexing all on-chain events, frontend reads from subgraph
 - SQLite for off-chain metadata (title, description, category, applications)
-- Contract ABIs generated and imported into frontend
-- API routes for bounty metadata and applications CRUD
+- Frontend wired: create bounty, approve dev, stake bond, submit deliverable, approve/reject, vote on disputes
+- TLSNotary verifier server deployed at notary.reyvon.gay
 
 ### Deployed Contracts (Base Mainnet)
-- VoterRegistry proxy: `0x7f1A5C01dE6E6Db59aA820d5049F7b89c3338d4A`
-- BountyEscrow proxy: `0x756aC998B595f95F5bfC4092dBC043857430A806`
-- DisputeResolver proxy: `0x480Fa0aBe7d016701CbbAAF33a4D802BD6034c7e`
-- Semaphore group ID: 127
+- BountyEscrow proxy: `0x1005c4231E5A687F41A15277cEc416d4A9D3649e`
+- DisputeResolver proxy: `0xF7bBF83bdA864b7298eeBfB509c887033226FaB4`
+
+### Subgraph (Goldsky)
+
+Indexed via Goldsky. Frontend uses the `latest` tag so no URL changes are needed on redeploy.
+
+```bash
+cd packages/subgraph
+
+# 1. Bump version in package.json deploy:goldsky and tag:latest scripts
+# 2. Build and deploy
+mise exec -- pnpm graph codegen && mise exec -- pnpm graph build
+mise exec -- pnpm run deploy:goldsky
+
+# 3. Point the latest tag at the new version (frontend reads this)
+mise exec -- pnpm run tag:latest
+
+# 4. Delete old versions if you hit the free tier limit (max 3)
+mise exec -- goldsky subgraph list
+mise exec -- goldsky subgraph delete neuro-bounty-board/<old-version> --force
+```
+
+### Infrastructure
+- TLSNotary Verifier Server: `https://notary.reyvon.gay` (Hetzner, 88.99.168.111)
+  - Health: `https://notary.reyvon.gay/health`
+  - WebSocket proxy: `wss://notary.reyvon.gay/proxy?token=<host>`
+  - Attestation polling: `https://notary.reyvon.gay/attestation/:correlationId`
+  - Caddy reverse proxy with auto-SSL, systemd service `tlsn-verifier`
+
+### Deploying the Verifier Server
+Source: `../TLSNotary-test/packages/verifier/` (Rust). Server: `root@88.99.168.111`.
+
+```bash
+# 1. Build release binary locally
+cd ../TLSNotary-test/packages/verifier
+cargo build --release
+
+# 2. Upload binary
+scp target/release/tlsn-verifier-server root@88.99.168.111:/usr/local/bin/tlsn-verifier-server.new
+
+# 3. Swap binary and restart
+ssh root@88.99.168.111 "mv /usr/local/bin/tlsn-verifier-server.new /usr/local/bin/tlsn-verifier-server && chmod +x /usr/local/bin/tlsn-verifier-server && systemctl restart tlsn-verifier"
+
+# 4. Verify
+curl https://notary.reyvon.gay/health
+```
+
+Server layout:
+- Binary: `/usr/local/bin/tlsn-verifier-server`
+- Config: `/etc/tlsn-verifier/config.yaml` (webhook endpoints)
+- Env: `/etc/tlsn-verifier/notary.env` (NOTARY_PRIVATE_KEY)
+- Service: `systemctl {start,stop,restart,status} tlsn-verifier`
+- Logs: `journalctl -u tlsn-verifier -f`
+- Reverse proxy: Caddy (auto-SSL for notary.reyvon.gay)
 
 ### Next Up
-- Subgraph for indexing on-chain events (replace SQLite reads + direct RPC multicalls)
-- Wire remaining action buttons (cancel, approve dev, stake, submit, approve/reject deliverable, vote)
-- EURC approval flow before creating bounties
+- Relayer for anonymous voting (currently `msg.sender` leaks voter identity despite Semaphore ZK proofs)
+- Frontend reactivity fixes (action panel doesn't update after tx confirms, requires refresh)
+- EURC approval UX improvements (max approval, spinner, refresh after approve)
+- Batch frontend polish (see memory for full TODO list)
 
 ## Conventions
 
