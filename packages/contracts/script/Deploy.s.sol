@@ -5,71 +5,72 @@ import "forge-std/Script.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../src/BountyEscrow.sol";
 import "../src/DisputeResolver.sol";
-import "../src/VoterRegistry.sol";
 
-/// @title Deploy — deploys all bounty board contracts behind UUPS proxies.
+/// @title Deploy — deploys bounty board contracts behind UUPS proxies.
 /// @dev Deploy order matters due to cross-references:
-///      1. VoterRegistry (creates Semaphore group)
-///      2. DisputeResolver (needs groupId from VoterRegistry)
-///      3. BountyEscrow (needs DisputeResolver address)
-///      4. Wire: BountyEscrow.setDisputeResolver(resolver)
+///      1. BountyEscrow (deployed first, needs address for DisputeResolver)
+///      2. DisputeResolver (needs BountyEscrow address + TLSNotary config)
+///      3. Wire: BountyEscrow.setDisputeResolver(resolver)
 contract Deploy is Script {
     // ─── Base Mainnet Addresses ────────────────────────────────────────
     address constant SEMAPHORE = 0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D;
-    address constant RECLAIM = 0xB51FCb41fF11e0445600f63D8c38f955DcCB0B2c;
-
-    // ─── Configuration (set via env or override) ─────────────────────────
-    // EURC on Optimism: https://developers.circle.com/stablecoins/docs/eurc-on-main-networks
-    // If not set, will need to be provided via EURC_ADDRESS env var
-    address eurcAddress;
-    address treasuryAddress;
 
     function run() external {
-        eurcAddress = vm.envAddress("EURC_ADDRESS");
-        treasuryAddress = vm.envAddress("TREASURY_ADDRESS");
+        address eurcAddress = vm.envAddress("EURC_ADDRESS");
+        address treasuryAddress = vm.envAddress("TREASURY_ADDRESS");
+        uint256 requiredSigs = vm.envUint("REQUIRED_SIGNATURES");
 
-        string memory userIdField = vm.envOr("USER_ID_FIELD", string('"userId":"'));
-        string memory providerId = vm.envOr("PROVIDER_ID", string("twitch-sub-provider"));
+        // Read notaries from env (comma-separated or individual NOTARY_N vars)
+        address[] memory notaries = _loadNotaries();
 
         vm.startBroadcast();
 
-        // 1. Deploy VoterRegistry
-        VoterRegistry registryImpl = new VoterRegistry();
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(registryImpl),
-            abi.encodeCall(VoterRegistry.initialize, (SEMAPHORE, RECLAIM, userIdField, providerId))
-        );
-        VoterRegistry registry = VoterRegistry(address(registryProxy));
-        uint256 groupId = registry.getGroupId();
-
-        // 2. Deploy BountyEscrow (need address first for DisputeResolver)
+        // 1. Deploy BountyEscrow
         BountyEscrow escrowImpl = new BountyEscrow();
         ERC1967Proxy escrowProxy = new ERC1967Proxy(
             address(escrowImpl), abi.encodeCall(BountyEscrow.initialize, (eurcAddress, treasuryAddress))
         );
         BountyEscrow escrow = BountyEscrow(address(escrowProxy));
 
-        // 3. Deploy DisputeResolver
+        // 2. Deploy DisputeResolver with TLSNotary config
         DisputeResolver resolverImpl = new DisputeResolver();
         ERC1967Proxy resolverProxy = new ERC1967Proxy(
             address(resolverImpl),
-            abi.encodeCall(DisputeResolver.initialize, (SEMAPHORE, address(escrow), groupId))
+            abi.encodeCall(
+                DisputeResolver.initialize,
+                (SEMAPHORE, address(escrow), notaries, requiredSigs, "gql.twitch.tv")
+            )
         );
         DisputeResolver resolver = DisputeResolver(address(resolverProxy));
 
-        // 4. Wire escrow to resolver
+        // 3. Wire escrow to resolver
         escrow.setDisputeResolver(address(resolver));
 
         vm.stopBroadcast();
 
         // Log deployed addresses
         console.log("=== Deployed Contracts ===");
-        console.log("VoterRegistry (impl):", address(registryImpl));
-        console.log("VoterRegistry (proxy):", address(registryProxy));
         console.log("BountyEscrow (impl):", address(escrowImpl));
         console.log("BountyEscrow (proxy):", address(escrowProxy));
         console.log("DisputeResolver (impl):", address(resolverImpl));
         console.log("DisputeResolver (proxy):", address(resolverProxy));
-        console.log("Semaphore group ID:", groupId);
+        console.log("Notaries registered:", notaries.length);
+        console.log("Required signatures:", requiredSigs);
+    }
+
+    function _loadNotaries() internal view returns (address[] memory) {
+        // Try NOTARY_1, NOTARY_2, ... up to 10
+        address[] memory tmp = new address[](10);
+        uint256 count;
+        for (uint256 i = 1; i <= 10; i++) {
+            try vm.envAddress(string.concat("NOTARY_", vm.toString(i))) returns (address n) {
+                tmp[count++] = n;
+            } catch {
+                break;
+            }
+        }
+        address[] memory result = new address[](count);
+        for (uint256 i; i < count; i++) result[i] = tmp[i];
+        return result;
     }
 }
