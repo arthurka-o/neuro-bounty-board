@@ -169,6 +169,14 @@ export default function FaucetPage() {
             hours from the faucet below. That&rsquo;s enough to post a few bounties
             or stake bonds.
           </p>
+          <p>
+            <span className="font-medium text-on-surface">Heads up:</span> if
+            you signed in as a guest, your account lives only in this browser.
+            Logging out or clearing site data means you lose access to that
+            wallet and any tokens in it. Use{" "}
+            <span className="font-medium text-on-surface">email sign-up</span>{" "}
+            if you want to come back later.
+          </p>
         </div>
       </div>
 

@@ -1,10 +1,40 @@
 "use client";
 
+import { useAccount } from "wagmi";
 import { OpenfortButton } from "@openfort/react";
 import Link from "next/link";
 import { TokenBalance } from "./TokenBalance";
 
 const isTestnet = process.env.NEXT_PUBLIC_CHAIN === "sepolia";
+
+function ConnectButton() {
+  const { status, address } = useAccount();
+
+  const label =
+    status === "connected" && address
+      ? `${address.slice(0, 6)}...${address.slice(-4)}`
+      : status === "connecting" || status === "reconnecting"
+        ? ""
+        : isTestnet
+          ? "Sign In"
+          : "Connect Wallet";
+
+  // Don't render anything while reconnecting to avoid flash
+  if (!label) return null;
+
+  return (
+    <OpenfortButton.Custom>
+      {({ show }) => (
+        <button
+          onClick={show}
+          className="rounded-full bg-secondary-container text-on-secondary-container px-5 py-2.5 text-sm font-bold font-headline shadow-sm hover:shadow-md hover:brightness-95 transition-all active:scale-95"
+        >
+          {label}
+        </button>
+      )}
+    </OpenfortButton.Custom>
+  );
+}
 
 export function Header() {
   return (
@@ -43,7 +73,7 @@ export function Header() {
             <span className="text-base leading-none">+</span>
             Post Bounty
           </Link>
-          <OpenfortButton />
+          <ConnectButton />
         </div>
       </div>
     </header>
