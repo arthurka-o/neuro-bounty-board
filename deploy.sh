@@ -11,7 +11,7 @@ case "${1:-testnet}" in
     ;;
   mainnet)
     echo "Deploying MAINNET to prod.reyvon.gay..."
-    ssh "$HOST" "cd $REPO && git pull && pnpm install && cd packages/frontend && NEXT_PUBLIC_CHAIN= pnpm build && systemctl restart bounty-board-prod"
+    ssh "$HOST" "cd /opt/neuro-bounty-board-prod && git pull && pnpm install && cd packages/frontend && pnpm build && systemctl restart bounty-board-prod"
     ;;
   *)
     echo "Usage: ./deploy.sh [testnet|mainnet]"
