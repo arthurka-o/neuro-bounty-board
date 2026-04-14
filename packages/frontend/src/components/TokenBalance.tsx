@@ -19,7 +19,7 @@ export function TokenBalance() {
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 10_000 },
+    query: { enabled: !!address && isConnected, refetchInterval: 10_000 },
   });
 
   if (!isConnected || balance === undefined) return null;
