@@ -9,7 +9,10 @@ import {
 } from "wagmi";
 import { parseUnits, keccak256, toBytes, erc20Abi } from "viem";
 import { BOUNTY_CATEGORIES, DEADLINE_OPTIONS, BountyCategory } from "@/lib/types";
-import { contracts, TOKEN_ADDRESS, TOKEN_SYMBOL, TOKEN_NAME } from "@/lib/contracts";
+import { contracts, TOKEN_ADDRESS, TOKEN_NAME, formatTokenAmount, CHAIN } from "@/lib/contracts";
+import { baseSepolia } from "wagmi/chains";
+
+const isTestnet = CHAIN.id === baseSepolia.id;
 import { useEscrowConfig } from "@/lib/hooks";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -70,6 +73,7 @@ export default function CreateBountyPage() {
       abi: erc20Abi,
       functionName: "approve",
       args: [contracts.bountyEscrow.address, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+      chainId: contracts.bountyEscrow.chainId,
     });
   }
 
@@ -214,9 +218,11 @@ export default function CreateBountyPage() {
               Reward
             </label>
             <div className="relative">
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl font-bold text-secondary font-headline">
-                {TOKEN_SYMBOL}
-              </span>
+              {!isTestnet && (
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl font-bold text-secondary font-headline">
+                  &euro;
+                </span>
+              )}
               <input
                 type="number"
                 value={reward}
@@ -224,8 +230,13 @@ export default function CreateBountyPage() {
                 placeholder="2,000"
                 min="0.01"
                 step="0.01"
-                className="w-full rounded-xl border border-border bg-surface-dim pl-12 pr-5 py-4 text-2xl font-bold text-on-surface font-headline placeholder:text-outline-variant focus:border-secondary/50 focus:outline-none focus:ring-2 focus:ring-secondary/10 transition-all"
+                className={`w-full rounded-xl border border-border bg-surface-dim ${isTestnet ? "pl-5" : "pl-12"} pr-${isTestnet ? "20" : "5"} py-4 text-2xl font-bold text-on-surface font-headline placeholder:text-outline-variant focus:border-secondary/50 focus:outline-none focus:ring-2 focus:ring-secondary/10 transition-all`}
               />
+              {isTestnet && (
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-secondary font-headline">
+                  nEUR
+                </span>
+              )}
             </div>
             <p className="mt-2 text-xs text-outline">
               Paid in {TOKEN_NAME}. Locked in escrow when posted.
@@ -271,7 +282,7 @@ export default function CreateBountyPage() {
                 {rewardNum > 0 && (
                   <span className="text-on-surface-muted">
                     {" "}
-                    ({TOKEN_SYMBOL}{bondAmount.toFixed(2)})
+                    ({formatTokenAmount(bondAmount.toFixed(2))})
                   </span>
                 )}
               </p>

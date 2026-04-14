@@ -1,4 +1,4 @@
-import { AuthProvider } from "@openfort/react";
+import { AuthProvider, AccountTypeEnum } from "@openfort/react";
 
 const isTestnet = process.env.NEXT_PUBLIC_CHAIN === "sepolia";
 
@@ -8,6 +8,9 @@ export const walletConfig = {
   ethereum: {
     ethereumFeeSponsorshipId: isTestnet
       ? process.env.NEXT_PUBLIC_OPENFORT_POLICY_ID
+      : undefined,
+    accountType: isTestnet
+      ? AccountTypeEnum.SMART_ACCOUNT
       : undefined,
   },
 };

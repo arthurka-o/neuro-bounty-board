@@ -11,7 +11,7 @@ import {
   useSignMessage,
   usePublicClient,
 } from "wagmi";
-import { contracts, TOKEN_ADDRESS, TOKEN_SYMBOL, TOKEN_NAME } from "@/lib/contracts";
+import { contracts, TOKEN_ADDRESS, TOKEN_NAME, formatTokenAmount } from "@/lib/contracts";
 import { fetchDisputeVoters } from "@/lib/subgraph";
 import { erc20Abi, parseUnits, toHex, keccak256, encodePacked, type Hex } from "viem";
 // Semaphore imports are dynamic to avoid SSR/Turbopack issues with WASM
@@ -167,12 +167,13 @@ function ApplySection({ bountyId, applications, onSuccess }: { bountyId: number;
   return (
     <div className="space-y-4">
       <p className="text-sm text-on-surface-muted">
-        Interested in working on this bounty? Submit an application.
+        Interested in working on this bounty? Describe your approach and link
+        to your portfolio or GitHub so the poster can evaluate your experience.
       </p>
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Describe your experience and how you'd approach this..."
+        placeholder="I'd approach this by... Here's my GitHub/portfolio: https://..."
         className="w-full rounded-lg border border-border bg-surface-dim px-4 py-3 text-sm text-on-surface placeholder:text-outline-variant focus:border-secondary/50 focus:outline-none focus:ring-2 focus:ring-secondary/10 transition-all"
         rows={3}
       />
@@ -350,6 +351,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
       abi: erc20Abi,
       functionName: "approve",
       args: [contracts.bountyEscrow.address, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+      chainId: contracts.bountyEscrow.chainId,
     });
   }
 
@@ -371,7 +373,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
     <div className="space-y-4">
       <p className="text-sm text-on-surface-muted">
         You&apos;ve been approved for this bounty. Stake your bond of{" "}
-        <span className="font-bold text-on-surface">{TOKEN_SYMBOL}{bondFormatted}</span>{" "}
+        <span className="font-bold text-on-surface">{formatTokenAmount(bondFormatted)}</span>{" "}
         to start working.
       </p>
       {needsApproval && !approveTx.isSuccess ? (
@@ -388,7 +390,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
           disabled={busy}
           className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
         >
-          {stakeTx.isPending || stakeTx.isConfirming ? "Staking bond..." : `Stake Bond (${TOKEN_SYMBOL}${bondFormatted})`}
+          {stakeTx.isPending || stakeTx.isConfirming ? "Staking bond..." : `Stake Bond (${formatTokenAmount(bondFormatted)})`}
         </button>
       )}
     </div>
