@@ -64,7 +64,7 @@ export type Bounty = {
 
 // ─── Display helpers ─────────────────────────────────────────────────
 
-/** Format EURC amount (6 decimals) to human-readable euro string */
+/** Format token amount (6 decimals) to human-readable string */
 export function formatEurc(amount: bigint): string {
   const whole = amount / 1_000_000n;
   const frac = amount % 1_000_000n;

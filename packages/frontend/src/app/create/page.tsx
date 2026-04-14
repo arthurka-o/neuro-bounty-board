@@ -9,10 +9,8 @@ import {
 } from "wagmi";
 import { parseUnits, keccak256, toBytes, erc20Abi } from "viem";
 import { BOUNTY_CATEGORIES, DEADLINE_OPTIONS, BountyCategory } from "@/lib/types";
-import { contracts } from "@/lib/contracts";
+import { contracts, TOKEN_ADDRESS, TOKEN_SYMBOL, TOKEN_NAME } from "@/lib/contracts";
 import { useEscrowConfig } from "@/lib/hooks";
-
-const EURC_ADDRESS = "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42" as const;
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -50,7 +48,7 @@ export default function CreateBountyPage() {
 
   // Check current EURC allowance — refetch after approval confirms
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: EURC_ADDRESS,
+    address: TOKEN_ADDRESS,
     abi: erc20Abi,
     functionName: "allowance",
     args: address
@@ -68,7 +66,7 @@ export default function CreateBountyPage() {
   function handleApprove() {
     if (!isConnected || rewardWei === 0n) return;
     writeApprove({
-      address: EURC_ADDRESS,
+      address: TOKEN_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
       args: [contracts.bountyEscrow.address, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
@@ -217,7 +215,7 @@ export default function CreateBountyPage() {
             </label>
             <div className="relative">
               <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl font-bold text-secondary font-headline">
-                &euro;
+                {TOKEN_SYMBOL}
               </span>
               <input
                 type="number"
@@ -230,7 +228,7 @@ export default function CreateBountyPage() {
               />
             </div>
             <p className="mt-2 text-xs text-outline">
-              Paid in EURC. Locked in escrow when posted.
+              Paid in {TOKEN_NAME}. Locked in escrow when posted.
             </p>
           </div>
 
@@ -273,7 +271,7 @@ export default function CreateBountyPage() {
                 {rewardNum > 0 && (
                   <span className="text-on-surface-muted">
                     {" "}
-                    (&euro;{bondAmount.toFixed(2)})
+                    ({TOKEN_SYMBOL}{bondAmount.toFixed(2)})
                   </span>
                 )}
               </p>
@@ -295,7 +293,7 @@ export default function CreateBountyPage() {
                   ? "Waiting for wallet..."
                   : approveConfirming
                     ? "Confirming..."
-                    : "Approve EURC"}
+                    : `Approve ${TOKEN_NAME}`}
               </button>
             ) : (
               <button

@@ -11,7 +11,7 @@ import {
   useSignMessage,
   usePublicClient,
 } from "wagmi";
-import { contracts } from "@/lib/contracts";
+import { contracts, TOKEN_ADDRESS, TOKEN_SYMBOL, TOKEN_NAME } from "@/lib/contracts";
 import { fetchDisputeVoters } from "@/lib/subgraph";
 import { erc20Abi, parseUnits, toHex, keccak256, encodePacked, type Hex } from "viem";
 // Semaphore imports are dynamic to avoid SSR/Turbopack issues with WASM
@@ -19,7 +19,6 @@ const getSemaphore = () => import("@/lib/semaphore");
 
 const MAX_VOTE_RETRIES = 3;
 
-const EURC_ADDRESS = "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42" as const;
 
 function useActionTx() {
   const { writeContract, data: txHash, isPending, reset } = useWriteContract();
@@ -336,7 +335,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
   const bond = bondBps ? (reward * BigInt(bondBps)) / 10000n : 0n;
 
   const { data: allowance } = useReadContract({
-    address: EURC_ADDRESS,
+    address: TOKEN_ADDRESS,
     abi: erc20Abi,
     functionName: "allowance",
     args: address ? [address, contracts.bountyEscrow.address] : undefined,
@@ -347,7 +346,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
 
   function handleApprove() {
     approveTx.writeContract({
-      address: EURC_ADDRESS,
+      address: TOKEN_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
       args: [contracts.bountyEscrow.address, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
@@ -372,7 +371,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
     <div className="space-y-4">
       <p className="text-sm text-on-surface-muted">
         You&apos;ve been approved for this bounty. Stake your bond of{" "}
-        <span className="font-bold text-on-surface">&euro;{bondFormatted}</span>{" "}
+        <span className="font-bold text-on-surface">{TOKEN_SYMBOL}{bondFormatted}</span>{" "}
         to start working.
       </p>
       {needsApproval && !approveTx.isSuccess ? (
@@ -381,7 +380,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
           disabled={busy}
           className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
         >
-          {approveTx.isPending || approveTx.isConfirming ? "Approving EURC..." : `Approve EURC`}
+          {approveTx.isPending || approveTx.isConfirming ? `Approving ${TOKEN_NAME}...` : `Approve ${TOKEN_NAME}`}
         </button>
       ) : (
         <button
@@ -389,7 +388,7 @@ function StakeBondSection({ bountyId, reward, onSuccess }: { bountyId: number; r
           disabled={busy}
           className="rounded-full bg-secondary-container text-on-secondary-container px-6 py-3 text-sm font-bold font-headline hover:brightness-95 transition-all active:scale-95 disabled:opacity-50"
         >
-          {stakeTx.isPending || stakeTx.isConfirming ? "Staking bond..." : `Stake Bond (€${bondFormatted})`}
+          {stakeTx.isPending || stakeTx.isConfirming ? "Staking bond..." : `Stake Bond (${TOKEN_SYMBOL}${bondFormatted})`}
         </button>
       )}
     </div>

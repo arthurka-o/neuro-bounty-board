@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bounty, formatEurc, formatDeadline } from "@/lib/types";
+import { TOKEN_SYMBOL } from "@/lib/contracts";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
 
@@ -42,7 +43,7 @@ export function BountyCard({ bounty }: { bounty: Bounty }) {
         <div className="text-right">
           <p className="text-xs text-outline">Reward</p>
           <p className="text-3xl font-extrabold text-secondary font-headline">
-            &euro;{formatEurc(bounty.reward)}
+            {TOKEN_SYMBOL}{formatEurc(bounty.reward)}
           </p>
         </div>
       </div>
