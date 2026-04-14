@@ -155,19 +155,15 @@ export default function FaucetPage() {
           <p>
             This is a <span className="font-medium text-on-surface">demo version</span> of the
             Neuro Bounty Board running on a test network. Everything works
-            exactly like the real thing, but with play money instead of real
-            euros.
+            exactly like the real thing, but with{" "}
+            <span className="line-through text-outline">play money instead of real
+            euros</span>{" "}
+            neuros from the glorious Neuropa.
           </p>
           <p>
-            <span className="font-bold text-secondary">nEUR</span> is our test
-            token &mdash; it stands in for real currency so you can try posting
-            bounties, applying to work on them, staking bonds, and voting on
-            disputes without spending a cent.
-          </p>
-          <p>
-            You can claim <span className="font-medium text-on-surface">500 nEUR</span> every 24
-            hours from the faucet below. That&rsquo;s enough to post a few bounties
-            or stake bonds.
+            You can claim <span className="font-medium text-on-surface">500 nEUR</span>{" "}
+            every 24 hours from the faucet below. That&rsquo;s enough to post
+            a few bounties or stake bonds.
           </p>
           <p>
             <span className="font-medium text-on-surface">Heads up:</span> if
