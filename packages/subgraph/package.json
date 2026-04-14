@@ -5,8 +5,11 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
+    "build:testnet": "graph codegen subgraph.testnet.yaml && graph build subgraph.testnet.yaml",
     "deploy:goldsky": "goldsky subgraph deploy neuro-bounty-board/1.0.5 --path build/",
-    "tag:latest": "goldsky subgraph tag create neuro-bounty-board/1.0.5 --tag latest"
+    "tag:latest": "goldsky subgraph tag create neuro-bounty-board/1.0.5 --tag latest",
+    "deploy:goldsky:testnet": "goldsky subgraph deploy neuro-bounty-board-testnet/1.0.0 --path build/",
+    "tag:latest:testnet": "goldsky subgraph tag create neuro-bounty-board-testnet/1.0.0 --tag latest"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.98.1",

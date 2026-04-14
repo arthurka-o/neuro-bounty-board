@@ -1,0 +1,75 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: BountyEscrow
+    network: base-sepolia
+    source:
+      address: "0x7f1A5C01dE6E6Db59aA820d5049F7b89c3338d4A"
+      abi: BountyEscrow
+      startBlock: 40201952
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Bounty
+      abis:
+        - name: BountyEscrow
+          file: ./abis/BountyEscrow.json
+      eventHandlers:
+        - event: BountyCreated(indexed uint256,indexed address,uint256,uint256)
+          handler: handleBountyCreated
+        - event: BountyCancelled(indexed uint256)
+          handler: handleBountyCancelled
+        - event: DevApproved(indexed uint256,indexed address,uint256)
+          handler: handleDevApproved
+        - event: BondStaked(indexed uint256,indexed address,uint256)
+          handler: handleBondStaked
+        - event: DeliverableSubmitted(indexed uint256,string)
+          handler: handleDeliverableSubmitted
+        - event: DeliverableApproved(indexed uint256)
+          handler: handleDeliverableApproved
+        - event: DeliverableRejected(indexed uint256)
+          handler: handleDeliverableRejected
+        - event: BountyExpired(indexed uint256)
+          handler: handleBountyExpired
+        - event: BountyResolved(indexed uint256,uint8)
+          handler: handleBountyResolved
+      file: ./src/bounty-escrow.ts
+
+  - kind: ethereum
+    name: DisputeResolver
+    network: base-sepolia
+    source:
+      address: "0x756aC998B595f95F5bfC4092dBC043857430A806"
+      abi: DisputeResolver
+      startBlock: 40201952
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Dispute
+        - Vote
+        - DisputeVoter
+      abis:
+        - name: DisputeResolver
+          file: ./abis/DisputeResolver.json
+      eventHandlers:
+        - event: DisputeOpened(indexed uint256,uint256)
+          handler: handleDisputeOpened
+        - event: VoteCast(indexed uint256,uint256)
+          handler: handleVoteCast
+        - event: DisputeResolved(indexed uint256,uint8)
+          handler: handleDisputeResolved
+        - event: DisputeExtended(indexed uint256,uint256)
+          handler: handleDisputeExtended
+        - event: DisputeEscalated(indexed uint256)
+          handler: handleDisputeEscalated
+        - event: VoterJoinedDispute(indexed uint256,indexed bytes32,uint256)
+          handler: handleVoterJoinedDispute
+      file: ./src/dispute-resolver.ts
