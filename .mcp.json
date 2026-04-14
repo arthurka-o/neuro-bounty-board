@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "openfort": {
+      "command": "npx",
+      "args": ["openfort", "--mcp"]
+    }
+  }
+}
