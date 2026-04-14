@@ -1,6 +1,6 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { OpenfortButton } from "@openfort/react";
 import Link from "next/link";
 
 export function Header() {
@@ -31,7 +31,7 @@ export function Header() {
             <span className="text-base leading-none">+</span>
             Post Bounty
           </Link>
-          <ConnectButton />
+          <OpenfortButton />
         </div>
       </div>
     </header>

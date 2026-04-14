@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@openfort/react": "^1.0.12",
     "@semaphore-protocol/group": "^4.14.2",
     "@semaphore-protocol/identity": "^4.14.2",
     "@semaphore-protocol/proof": "^4.14.2",
