@@ -2,6 +2,9 @@
 
 import { OpenfortButton } from "@openfort/react";
 import Link from "next/link";
+import { TokenBalance } from "./TokenBalance";
+
+const isTestnet = process.env.NEXT_PUBLIC_CHAIN === "sepolia";
 
 export function Header() {
   return (
@@ -21,9 +24,18 @@ export function Header() {
             >
               Bounties
             </Link>
+            {isTestnet && (
+              <Link
+                href="/faucet"
+                className="text-on-surface-muted hover:text-secondary transition-colors"
+              >
+                Get Tokens
+              </Link>
+            )}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <TokenBalance />
           <Link
             href="/create"
             className="hidden sm:inline-flex items-center gap-2 bg-secondary-container text-on-secondary-container px-6 py-2.5 rounded-full text-sm font-bold font-headline shadow-sm hover:shadow-md hover:brightness-95 transition-all active:scale-95"

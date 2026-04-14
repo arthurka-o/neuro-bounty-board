@@ -1,7 +1,8 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const DB_PATH = path.join(process.cwd(), "bounties.db");
+const dbName = process.env.NEXT_PUBLIC_CHAIN === "sepolia" ? "bounties-testnet.db" : "bounties.db";
+const DB_PATH = path.join(process.cwd(), dbName);
 
 let _db: Database.Database | null = null;
 
